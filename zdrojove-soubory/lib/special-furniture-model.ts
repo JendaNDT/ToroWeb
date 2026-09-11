@@ -3,7 +3,7 @@ import { materials, type MaterialId } from './configuration';
 import type { Furniture } from './room';
 
 export function buildSpecialFurniture(item:Furniture,texture:THREE.Texture|null,showFront:boolean):THREE.Group|null {
-  if(!['bench','panel','mirror','vanity','laundry','desk'].includes(item.type))return null;
+  if(!['bench','panel','mirror','vanity','laundry','desk','bed','custom'].includes(item.type))return null;
   const g=new THREE.Group(),w=item.width/100,h=item.height/100,d=item.depth/100,t=item.construction==='solid'?.028:.018;
   const finish=(id:MaterialId)=>new THREE.MeshStandardMaterial({color:id==='oak'&&texture?'#fff':materials.find(m=>m.id===id)!.color,map:['oak','walnut'].includes(id)?texture:null,roughness:.65});
   const wood=finish(item.material),front=finish(item.front),metal=new THREE.MeshStandardMaterial({color:item.handles==='brass'?'#a98c53':'#26282b',metalness:.65,roughness:.4});
@@ -17,7 +17,17 @@ export function buildSpecialFurniture(item:Furniture,texture:THREE.Texture|null,
   function circle(x:number,y:number,z:number,radius:number,mat:THREE.Material){
     const m=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,.014,40),mat);m.rotation.x=Math.PI/2;m.position.set(x,y,z);g.add(m);
   }
-  if(item.type==='bench'||item.type==='desk'){
+  if(item.type==='custom'){
+    box(0,h/2,0,w,h,d);
+  }else if(item.type==='bed'){
+    const rail=Math.min(.24,h*.3),top=Math.min(.5,h*.65),mattress=Math.min(.20,top*.45);
+    box(0,h/2,-d/2+.025,w,h,.05);
+    box(-w/2+.025,top-rail/2,0,.05,rail,d);box(w/2-.025,top-rail/2,0,.05,rail,d);
+    box(0,top-rail/2,d/2-.025,w,rail,.05);
+    for(const x of [-w/2+.07,w/2-.07])for(const z of [-d/2+.08,d/2-.08])box(x,(top-rail)/2,z,.06,top-rail,.06);
+    box(0,top-mattress/2,.01,w-.12,mattress,d-.14,white);
+    for(const x of (w>1.3?[-w*.23,w*.23]:[0]))box(x,top+.025,-d/2+.32,Math.min(.55,w*.7),.05,.35,white);
+  }else if(item.type==='bench'||item.type==='desk'){
     box(0,h-t/2,0,w,t,d);
     for(const x of [-w/2+.04,w/2-.04]){
       for(const z of [-d/2+.04,d/2-.04])box(x,(h-t)/2,z,.035,h-t,.035,metal);

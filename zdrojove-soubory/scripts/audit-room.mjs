@@ -27,7 +27,7 @@ for (const { type } of room.catalog) {
 }
 
 const point = { id: 'fraction', type: 'socket', name: 'Testovací zásuvka', wall: 'north', offset: 416.95, elevation: 30, width: 6.1, height: 8 };
-const imported = { ...base, title: 'AUDIT – desetinná zásuvka', technicalPoints: [point] };
+const imported = { ...base, version:2, title: 'AUDIT – desetinná zásuvka', technicalPoints: [point] };
 const migrated = room.parseDesign(imported);
 const fractionalSocket = {
   inputValid: room.roomDesignSchema.safeParse(imported).success,

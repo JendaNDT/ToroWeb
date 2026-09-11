@@ -9,14 +9,14 @@ import ts from 'typescript';
 const output=path.resolve('.sites-runtime/room-tests');
 fs.mkdirSync(output,{recursive:true});
 fs.writeFileSync(path.join(output,'package.json'),JSON.stringify({type:'commonjs'}));
-for(const name of ['configuration','wardrobe-model','room','room-storage','special-furniture-model','room-model','toro-templates','toro-inquiry','technical-model','planner-history']){
+for(const name of ['room-geometry','issue-acknowledgements','scene-label','room-previews','technical','configuration','wardrobe-model','room','room-storage','special-furniture-model','room-model','toro-templates','toro-inquiry','toro-prototype','technical-model','planner-history']){
   const source=fs.readFileSync(`lib/${name}.ts`,'utf8');
   const result=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}});
   fs.writeFileSync(path.join(output,`${name}.js`),result.outputText);
 }
 const require=createRequire(path.join(output,'package.json'));
 const THREE=require('three');
-const {initialRoom,catalog,placeItem,boundsOf,normalizeItem,openingLimits,resizeRoom,attachToWall,issuesFor,newFurniture,findFreePosition,furniturePrice,roomDesignSchema}=require('./room.js');
+const {initialRoom,catalog,placeItem,boundsOf,normalizeItem,resizeRoom,attachToWall,issuesFor,newFurniture,findFreePosition,furniturePrice,roomDesignSchema}=require('./room.js');
 const {buildFurniture,buildRoom}=require('./room-model.js');
 const {disposeGroup}=require('./wardrobe-model.js');
 let tests=0;
@@ -68,12 +68,12 @@ test('Door clearance is protected on every wall',()=>{
 test('Resizing preserves furniture dimensions and reports oversized pieces',()=>{
  const d=fixture();d.items=[{...newFurniture('builtin',d.room,'large'),width:400}];
  const resized=resizeRoom(d,{width:240,height:230});assert.equal(resized.items[0].width,400);assert(issuesFor(resized).some(i=>i.kind==='outside'));
- resized.room.openings.forEach(o=>assert.deepEqual(o,openingLimits(resized.room,o)));
+ assert.deepEqual(resized.room.openings,d.room.openings);assert(issuesFor(resized).some(i=>i.id.startsWith('opening-outside-')));assert(roomDesignSchema.safeParse(resized).success);
 });
 test('Every catalog type finds a valid free spot, unless the room is full',()=>{
  const d=fixture();for(const type of catalog.map(c=>c.type)){
   const i=newFurniture(type,d.room,type),p=findFreePosition(i,d);assert(p,type);
-  assert(!issuesFor({...d,items:[...d.items,p]}).some(issue=>issue.itemIds.includes(p.id)));
+  assert(!issuesFor({...d,items:[...d.items,p]}).some(issue=>issue.itemIds.includes(p.id)&&issue.severity==='problem'));
  }
  const room={...d.room,openings:[]},full={...d,room,items:[{...newFurniture('bookcase',room,'full'),width:room.width,depth:room.length,height:room.height}]};
  assert.equal(findFreePosition(newFurniture('wardrobe',room,'blocked'),full),null);
@@ -117,7 +117,7 @@ const {templates,createTemplate}=require('./toro-templates.js');
 const {placeInDesign}=require('./room.js');
 const {describeDesign}=require('./toro-inquiry.js');
 test('TORO templates validate, stay collision-free, and retain new fields after round trip',()=>{
- for(const t of templates){const d=createTemplate(t.id);const parsed=roomDesignSchema.safeParse(JSON.parse(JSON.stringify(d)));assert(parsed.success,t.id);assert.deepEqual(issuesFor(d),[],t.id);assert.deepEqual(parsed.data,d);}
+ for(const t of templates){const d=createTemplate(t.id);const parsed=roomDesignSchema.safeParse(JSON.parse(JSON.stringify(d)));assert(parsed.success,t.id);assert.deepEqual(issuesFor(d).filter(i=>i.severity==='problem'),[],t.id);assert.deepEqual(parsed.data,d);}
 });
 test('Appliance layout and double sinks enforce usable minimum widths',()=>{
  const room=fixture().room;
@@ -141,19 +141,21 @@ test('Inquiry description distinguishes existing items and names specialised fit
 const {parseDesign,upgradeDesign,normalizeTechnicalPoint,technicalPosition,nearestWallPoint}=require('./room.js');
 const {historyReducer}=require('./planner-history.js');
 const {buildTechnicalPoint}=require('./technical-model.js');
-const socket=(wall='north',offset=100,elevation=30)=>({id:'socket-a',type:'socket',name:'Zásuvka 230 V',wall,offset,elevation,width:8,height:8});
+const {newTechnicalPoint}=require('./technical.js');
+const legacySocket=(wall='north',offset=100,elevation=30)=>({id:'socket-a',type:'socket',name:'Zásuvka 230 V',wall,offset,elevation,width:8,height:8});
+const socket=(wall='north',offset=100,elevation=30)=>({...newTechnicalPoint('socket',fixture().room,'socket-a'),placement:{surface:'wall',wall,offset,elevation},accuracy:'measured'});
 
 test('Old room and inquiry imports migrate without losing furniture or altering the source',()=>{
  const old=fixture(),original=JSON.stringify(old);
- const migrated=parseDesign(old);assert.equal(migrated.version,2);assert.deepEqual(migrated.technicalPoints,[]);
+ const migrated=parseDesign(old);assert.equal(migrated.version,4);assert.deepEqual(migrated.technicalPoints,[]);
  assert.deepEqual(migrated.items,old.items);assert.equal(JSON.stringify(old),original);
  assert.deepEqual(parseDesign({format:'toro-inquiry',design:old}),migrated);
  assert.throws(()=>parseDesign({format:'toro-inquiry',design:null}));
 });
-test('Version 2 round trips sockets and rejects future, malformed and ambiguous data',()=>{
+test('Version 4 round trips sockets and rejects future, malformed and ambiguous data',()=>{
  const d={...upgradeDesign(fixture()),technicalPoints:[socket()]};
  assert.deepEqual(parseDesign(JSON.parse(JSON.stringify(d))),d);
- for(const value of [{...d,version:3},{...d,version:1},{...d,technicalPoints:[socket(),socket()]},{...d,technicalPoints:[{...socket(),offset:NaN}]},{...d,technicalPoints:[{...socket(),elevation:900}]},{...d,technicalPoints:[{...socket(),type:'unknown'}]},{...d,technicalPoints:[{...socket(),id:d.items[0].id}]}])assert.throws(()=>parseDesign(value));
+ for(const value of [{...d,version:5},{...d,version:2},{...d,version:1},{...d,technicalPoints:[socket(),socket()]},{...d,technicalPoints:[{...socket(),placement:{...socket().placement,offset:NaN}}]},{...d,technicalPoints:[{...socket(),placement:{...socket().placement,elevation:9000}}]},{...d,technicalPoints:[{...socket(),type:'unknown'}]},{...d,technicalPoints:[{...socket(),id:d.items[0].id}]}])assert.throws(()=>parseDesign(value));
 });
 test('Socket wall position is consistent for four walls and a smaller room',()=>{
  const room={...fixture().room,openings:[]};
@@ -161,28 +163,28 @@ test('Socket wall position is consistent for four walls and a smaller room',()=>
  for(const wall of Object.keys(expected)) {
    const point=socket(wall);assert.deepEqual(technicalPosition(point,room),expected[wall]);
    assert.equal(nearestWallPoint(room,expected[wall].x,expected[wall].z).wall,wall);
-   const fixed=normalizeTechnicalPoint({...point,offset:999,elevation:999},room);
-   assert.equal(fixed.offset,(wall==='north'||wall==='south'?520:420)-4);assert.equal(fixed.elevation,266);
+   const fixed=normalizeTechnicalPoint({...point,placement:{...point.placement,offset:999,elevation:999}},room);
+   assert.equal(fixed.placement.offset,(wall==='north'||wall==='south'?520:420)-4);assert.equal(fixed.placement.elevation,266);
  }
  const resized=resizeRoom({...upgradeDesign(fixture()),technicalPoints:[socket('north',500,265)]},{width:240,height:230});
- assert.equal(resized.technicalPoints[0].offset,236);assert.equal(resized.technicalPoints[0].elevation,226);assert(roomDesignSchema.safeParse(resized).success);
+ assert.equal(resized.technicalPoints[0].placement.offset,500);assert.equal(resized.technicalPoints[0].placement.elevation,265);assert(roomDesignSchema.safeParse(resized).success);assert(issuesFor(resized).some(i=>i.id==='technical-socket-a-outside'));
 });
 test('Socket access warnings use horizontal and vertical overlap on every wall',()=>{
  const room={...fixture().room,openings:[]};
  for(const wall of ['north','south','west','east']) {
    const piece=attachToWall(newFurniture('dresser',room,'dresser'),room,wall);
    const p=socket(wall,wall==='north'||wall==='south'?room.width/2:room.length/2);
-   const d={version:2,room,items:[piece],technicalPoints:[p]};
+   const d={version:3,room,items:[piece],technicalPoints:[p]};
    const issues=issuesFor(d).filter(i=>i.kind==='technical');assert.equal(issues.length,1,wall);
    assert.equal(issues[0].severity,'warning');assert.deepEqual(issues[0].technicalPointIds,[p.id]);
-   assert.equal(issuesFor({...d,technicalPoints:[{...p,elevation:180}]}).length,0,'socket above dresser '+wall);
+   assert.equal(issuesFor({...d,technicalPoints:[{...p,placement:{...p.placement,elevation:180}}]}).length,0,'socket above dresser '+wall);
    assert.equal(issuesFor({...d,items:[{...piece,x:0,z:0}]}).length,0,'free access '+wall);
  }
 });
 test('A socket in a window is a problem and can be clear below its sill',()=>{
  const d=upgradeDesign(fixture());d.items=[];
  d.technicalPoints=[socket('north',350,150)];assert(issuesFor(d).some(i=>i.severity==='problem'&&i.technicalPointIds.includes('socket-a')));
- d.technicalPoints[0].elevation=30;assert.equal(issuesFor(d).length,0);
+ d.technicalPoints[0].placement.elevation=30;assert.equal(issuesFor(d).length,0);
 });
 test('History restores technical points and invalidates redo after a new change',()=>{
  const d=upgradeDesign(fixture());let h={past:[],present:d,future:[]};
@@ -214,8 +216,8 @@ test('Full inquiry payload preserves socket, warnings, preview and attachments o
  assert.deepEqual(parseDesign(exported),d);assert.deepEqual(exported.photos,details.photos);assert.equal(exported.preview,details.preview);assert.deepEqual(exported.warnings,['Kontrola přístupu']);
 });
 test('Existing version 2 pointer coordinates with extra precision remain readable',()=>{
- const d={...upgradeDesign(fixture()),technicalPoints:[socket('west',172.31707318202297,30)]};
- const loaded=parseDesign(d);assert.equal(loaded.technicalPoints[0].offset,172.3);
+ const d={...fixture(),version:2,technicalPoints:[legacySocket('west',172.31707318202297,30)]};
+ const loaded=parseDesign(d);assert.equal(loaded.technicalPoints[0].placement.offset,172.31707318202297);
 });
 test('Fractional sockets at every wall edge survive repeated save and reload',()=>{
  const d=upgradeDesign(fixture());
@@ -225,7 +227,7 @@ test('Fractional sockets at every wall edge survive repeated save and reload',()
    let saved={...d,technicalPoints:[{...socket(wall,offset,elevation),width,height}]};
    for(let n=0;n<3;n++)saved=parseDesign(JSON.parse(JSON.stringify(saved)));
    assert(roomDesignSchema.safeParse(saved).success);
-   assert(Math.abs(saved.technicalPoints[0].offset-offset)<.051);assert(Math.abs(saved.technicalPoints[0].elevation-elevation)<.051);
+   assert(Math.abs(saved.technicalPoints[0].placement.offset-offset)<.051);assert(Math.abs(saved.technicalPoints[0].placement.elevation-elevation)<.051);
    assert.deepEqual(parseDesign(JSON.parse(JSON.stringify(saved))),saved);
   }
  }
@@ -285,6 +287,6 @@ test('Text and JSON inquiry include the same current collision warnings',()=>{
  const payload=createInquiryPayload(d,{summary},issues.map(i=>i.text));
  assert.deepEqual(payload.warnings,issues.map(i=>i.text));assert.equal(payload.summary,summary);
  const empty={...d,items:[],room:{...d.room,openings:[]}};
- assert(describeDesign(empty).includes('Bez zjištěných kolizí.'));
+ assert(describeDesign(empty).includes('Bez zjištěných kolizí podle zadaných údajů.'));
 });
 console.log(`\n${tests} room-planner checks passed.`);

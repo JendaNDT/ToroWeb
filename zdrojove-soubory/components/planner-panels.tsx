@@ -1,12 +1,12 @@
 'use client';
 import { useState } from 'react';
-import { ArrowLeft, Check, ChevronRight, CircleAlert, Download, PlugZap, Plus, Trash2 } from 'lucide-react';
+import { Check, ChevronRight, CircleAlert, Download, Plus } from 'lucide-react';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
 import { NativeSelect } from './ui/native-select';
-import { FurnitureIcon, NumberField } from './room-controls';
-import { catalog, wallNames, type FurnitureType, type Issue, type RoomDesign, type TechnicalPoint, type Wall } from '@/lib/room';
+import { FurnitureIcon } from './room-controls';
+import { catalog, type FurnitureType, type Issue, type RoomDesign } from '@/lib/room';
 import { furnitureCategories } from '@/lib/toro-templates';
+import { currentAcknowledgement } from '@/lib/issue-acknowledgements';
 
 export function FurnitureCatalog({design,onAdd,onSelect,onTemplates}:{design:RoomDesign;onAdd:(type:FurnitureType)=>void;onSelect:(id:string)=>void;onTemplates:()=>void}) {
   const [category,setCategory]=useState('all');
@@ -14,17 +14,16 @@ export function FurnitureCatalog({design,onAdd,onSelect,onTemplates}:{design:Roo
   return <div className="tw-panel-content"><span className="tw-eyebrow">NÁBYTEK</span><h2>Co do pokoje patří?</h2><label className="toro-field-label">Kategorie<NativeSelect value={category} onChange={e=>setCategory(e.target.value)}>{furnitureCategories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</NativeSelect></label><div className="tw-catalog">{entries.map(c=><button key={c.type} onClick={()=>onAdd(c.type)} aria-label={`Přidat ${c.name}`}><FurnitureIcon type={c.type} size={27}/><strong>{c.name}</strong><Plus size={15}/></button>)}</div><Button variant="outline" onClick={onTemplates}>Vybrat připravenou sestavu</Button><h3>V pokoji · {design.items.length}</h3><div className="tw-item-list">{design.items.map(item=><button key={item.id} onClick={()=>onSelect(item.id)}><FurnitureIcon type={item.type}/><span><strong>{item.name}</strong><small>{item.width} × {item.height} × {item.depth} cm</small></span><ChevronRight size={17}/></button>)}{!design.items.length&&<p>Vyberte první kus z nabídky.</p>}</div></div>;
 }
 
-export function TechnicalPanel({design,selected,onChange,onDelete,onSelect,onPlace,onAddDefault,placing,onCancel}:{design:RoomDesign;selected:TechnicalPoint|undefined;onChange:(patch:Partial<TechnicalPoint>)=>void;onDelete:()=>void;onSelect:(id:string|null)=>void;onPlace:()=>void;onAddDefault:()=>void;placing:boolean;onCancel:()=>void}) {
-  if(selected) {
-    const wallLength=selected.wall==='north'||selected.wall==='south'?design.room.width:design.room.length;
-    return <div className="tw-panel-content"><Button variant="ghost" onClick={()=>onSelect(null)}><ArrowLeft/> Všechny technické prvky</Button><span className="tw-eyebrow">ELEKTŘINA</span><h2>Zásuvka 230 V</h2><label className="toro-field-label">Název<Input value={selected.name} maxLength={80} onChange={e=>onChange({name:e.target.value||'Zásuvka 230 V'})}/></label><label className="toro-field-label">Stěna<NativeSelect value={selected.wall} onChange={e=>onChange({wall:e.target.value as Wall})}>{Object.entries(wallNames).map(([wall,name])=><option key={wall} value={wall}>{name}</option>)}</NativeSelect></label><NumberField label={selected.wall==='north'||selected.wall==='south'?'Od levého rohu ke středu':'Od zadního rohu ke středu'} value={selected.offset} min={selected.width/2} max={wallLength-selected.width/2} onChange={offset=>onChange({offset})}/><NumberField label="Výška středu nad podlahou" value={selected.elevation} min={selected.height/2} max={design.room.height-selected.height/2} onChange={elevation=>onChange({elevation})}/><p className="tw-note">Polohu měřte ke středu zásuvky. Zkontrolujeme, zda k ní nábytek neomezuje přístup.</p><details className="tw-details"><summary>Rozměry rámečku</summary><NumberField label="Šířka rámečku" value={selected.width} min={6} max={30} onChange={width=>onChange({width})}/><NumberField label="Výška rámečku" value={selected.height} min={6} max={30} onChange={height=>onChange({height})}/></details><Button variant="outline" onClick={onDelete}><Trash2/> Odebrat zásuvku</Button></div>;
-  }
-  return <div className="tw-panel-content"><span className="tw-eyebrow">TECHNICKÉ PRVKY / ELEKTŘINA</span><h2>Přípojná místa</h2><p>Zaznamenejte zásuvky, ke kterým potřebujete přístup.</p>{placing?<div className="tw-placement"><strong>Klikněte ke stěně v půdorysu.</strong><p>Přesnou vzdálenost a výšku pak upravíte.</p><Button variant="outline" onClick={onCancel}>Zrušit umístění</Button></div>:<Button className="tw-primary" disabled={(design.technicalPoints?.length??0)>=100} onClick={onPlace}><PlugZap/> Umístit zásuvku</Button>}<Button variant="ghost" disabled={(design.technicalPoints?.length??0)>=100} onClick={onAddDefault}>Přidat zadáním rozměrů</Button><h3>V návrhu · {design.technicalPoints?.length??0}</h3><div className="tw-item-list">{(design.technicalPoints??[]).map((point,index)=><button key={point.id} onClick={()=>onSelect(point.id)}><PlugZap/><span><strong>Z{index+1} · {point.name}</strong><small>{wallNames[point.wall]} · výška {point.elevation} cm</small></span><ChevronRight size={17}/></button>)}</div></div>;
-}
+export { TechnicalPanel } from './technical-panel';
 
-export function CheckPanel({issues,onSelect}:{issues:Issue[];onSelect:(issue:Issue)=>void}) {
-  const severity={info:'Informace',warning:'Upozornění',problem:'Problém'};
-  return <div className="tw-panel-content"><span className="tw-eyebrow">KONTROLA NÁVRHU</span><h2>{issues.length?'Místa k dořešení':'Bez zjevných kolizí'}</h2>{!issues.length&&<div className="tw-check-clear"><Check size={28}/><p>Nábytek, otvory a zásuvky si podle zadaných rozměrů nepřekážejí.</p></div>}<div className="tw-issues">{issues.map(issue=><button key={issue.id} className={`tw-issue tw-${issue.severity}`} onClick={()=>onSelect(issue)}><CircleAlert size={20}/><span><strong>{severity[issue.severity]}</strong>{issue.text}<small>Zobrazit místo v návrhu</small></span></button>)}</div><p className="tw-note">Kontrola je orientační. U zásuvek sleduje překrytí nábytkem a krátký prostor před rámečkem. Skutečný přístup a montáž ověříte s TORO.</p></div>;
+export function CheckPanel({design,issues,onSelect,onAcknowledge,onRevoke}:{design:RoomDesign;issues:Issue[];onSelect:(issue:Issue)=>void;onAcknowledge:(issue:Issue)=>void;onRevoke:(id:string)=>void}) {
+  const severity={info:'Informace',warning:'Upozornění',problem:'Problém'},important=issues.filter(i=>i.severity!=='info'),information=issues.filter(i=>i.severity==='info');
+  const rows=(list:Issue[])=>list.map(issue=>{const acknowledgement=currentAcknowledgement(design,issue);return <div key={issue.id} className={`tw-issue-card ${acknowledgement?'tw-acknowledged':''}`}><button className={`tw-issue tw-${issue.severity}`} onClick={()=>onSelect(issue)}><CircleAlert size={20}/><span><strong>{severity[issue.severity]}</strong>{issue.text}<small>Zobrazit místo v návrhu</small></span></button><div className="tw-issue-ack">{acknowledgement?<><span>Vzato na vědomí · {new Date(acknowledgement.acknowledgedAt).toLocaleDateString('cs-CZ')}</span><Button variant="ghost" onClick={()=>onRevoke(issue.id)}>Zrušit potvrzení</Button></>:<Button variant="outline" disabled={(design.acknowledgements?.length??0)>=300&&!design.acknowledgements?.some(a=>a.issueId===issue.id)} onClick={()=>onAcknowledge(issue)}>Beru na vědomí</Button>}</div></div>;});
+  return <div className="tw-panel-content"><span className="tw-eyebrow">KONTROLA NÁVRHU</span><h2>{important.length?'Místa k dořešení':information.length?'Údaje k ověření':'Bez zjevných kolizí'}</h2>
+    {!important.length&&<div className="tw-check-clear"><Check size={28}/><p>Podle zadaných rozměrů nebyly nalezeny kolize. {information.length?'Zbývají údaje k doplnění a ověření.':'Nezadané přípojky a instalační podmínky tím nejsou ověřené.'}</p></div>}
+    <div className="tw-issues">{rows(important.filter(i=>i.severity==='problem'))}{rows(important.filter(i=>i.severity==='warning'))}</div>
+    {information.length>0&&<details className="tw-details tw-information" open={information.length<4}><summary>Informace a údaje k doplnění ({information.length})</summary><div className="tw-issues">{rows(information)}</div></details>}
+    <p className="tw-note">Potvrzení zaznamená, že jste hlášení četli. Problém tím není opravený. Změna souvisejících údajů vyžaduje nové potvrzení. Trasy rozvodů, výřezy a vhodnost připojení ověříte s TORO.</p></div>;
 }
 
 export function InquiryPanel({design,issues,onOpen,onService,onExport,onCheck}:{design:RoomDesign;issues:Issue[];onOpen:()=>void;onService:()=>void;onExport:()=>void;onCheck:()=>void}) {

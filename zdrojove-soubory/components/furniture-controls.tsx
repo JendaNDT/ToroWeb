@@ -8,7 +8,9 @@ import { Switch } from '@/components/ui/switch';
 import { DimensionField, FurnitureSteps, LayoutDiagram, MaterialPicker, furnitureSteps } from '@/components/furniture-fields';
 import { FurnitureIcon, NumberField } from '@/components/room-controls';
 import { layouts, materials } from '@/lib/configuration';
-import { attachToWall, canMount, frontProjection, furnitureLimits, wallNames, type Furniture, type Room, type Wall, type Issue } from '@/lib/room';
+import { roomWalls } from '@/lib/room-geometry';
+import { Textarea } from './ui/textarea';
+import { attachToWall, canMount, frontProjection, furnitureLimits, type Furniture, type Room, type Wall, type Issue } from '@/lib/room';
 
 export function FurnitureControls({ item, room, issues, onChange, onDuplicate, onDelete, onShowFrontChange, onSummary }: {
   item: Furniture; room: Room; issues: Issue[];
@@ -23,7 +25,7 @@ export function FurnitureControls({ item, room, issues, onChange, onDuplicate, o
   const shelf = item.type === 'shelf';
   const dresser = item.type === 'dresser';
   const bookcase = item.type === 'bookcase';
-  const simple = ['shelf','bench','mirror','desk'].includes(item.type);
+  const simple = ['shelf','bench','mirror','desk','bed','custom'].includes(item.type);
   const special = ['panel','vanity','laundry'].includes(item.type);
   const limits = furnitureLimits(item.type);
   const steps = simple ? furnitureSteps.slice(0, 2) : special ? furnitureSteps.slice(0,3).map((s,i)=>i===2?{...s,name:'Vybavení'}:s) : bookcase ? furnitureSteps.slice(0, 3) : furnitureSteps.map((s, i) => dresser && i === 3 ? { name: 'Čela', icon: Rows3 } : s);
@@ -63,6 +65,7 @@ export function FurnitureControls({ item, room, issues, onChange, onDuplicate, o
           {frontProjection(item)>0&&<p className="step-description">Hloubka korpusu. Včetně čel a kování: {Number((item.depth+frontProjection(item)).toFixed(2))} cm. Kontrola počítá s celým kusem.</p>}
           {canMount(item.type) && <DimensionField label="Výška nad podlahou" value={item.y} min={0} max={Math.max(0,room.height - item.height)} onChange={y => onChange({ y })}/>}
         </div>
+        {item.type==='custom'&&<label className="toro-field-label">Zadání atypického kusu<Textarea value={item.notes??''} maxLength={2000} rows={4} onChange={e=>onChange({notes:e.target.value})} placeholder="Popište tvar, využití a důležité detaily pro TORO."/><span className="tw-note">Ve scéně je prostorový obal kusu. Podrobný tvar a konstrukci upřesníte s TORO.</span></label>}{item.type==='bed'&&<p className="tw-note">Rozměry zahrnují rám i čelo. Matrace je ilustrační; její velikost a provedení se upřesní při poptávce.</p>}
         {item.type === 'builtin' && <Button className="rp-fit-button" variant="outline" onClick={() => onChange({ height: room.height - 2 })}><ArrowDownToLine size={15}/> Přizpůsobit výšce pokoje</Button>}
         <div className="small-tip"><Ruler size={17}/><p>Měřte na více místech a počítejte s rezervou pro montáž.</p></div>
       </>}
@@ -121,7 +124,7 @@ export function FurnitureControls({ item, room, issues, onChange, onDuplicate, o
         <p className="rp-note">Pozice středu nábytku vůči středu pokoje.</p>
         <div className="rp-field-stack"><NumberField label="Vlevo / vpravo (X)" step={0.1} value={item.x} min={-room.width / 2} max={room.width / 2} onChange={x => onChange({ x })}/><NumberField label="Vzadu / vpředu (Z)" step={0.1} value={item.z} min={-room.length / 2} max={room.length / 2} onChange={z => onChange({ z })}/></div>
         <Button className="rp-rotate-button" variant="outline" onClick={() => onChange({ rotation: ((item.rotation + 90) % 360) as Furniture['rotation'] })}><RotateCw size={15}/> Otočit o 90°<span>{item.rotation}°</span></Button>
-        <div className="rp-control-section"><div className="rp-field-heading"><strong>Přisunout ke stěně</strong></div><div className="rp-wall-buttons">{Object.entries(wallNames).map(([wall, name]) => <button key={wall} onClick={() => onChange(attachToWall(item, room, wall as Wall))}>{name.replace(' stěna', '')}</button>)}</div><p className="rp-note">Čelo se automaticky otočí směrem do pokoje.</p></div>
+        <div className="rp-control-section"><div className="rp-field-heading"><strong>Přisunout ke stěně</strong></div><div className="rp-wall-buttons">{roomWalls(room).map(w => <button key={w.id} onClick={() => onChange(attachToWall(item, room, w.id as Wall))}>{w.name}</button>)}</div><p className="rp-note">Čelo se automaticky otočí směrem do pokoje.</p></div>
       </div></details>
       <label className="toro-existing"><Switch checked={!!item.existing} onCheckedChange={existing=>onChange({existing})}/><span>Tento kus už mám<small>Zůstane v pokoji, vynechá se z poptávky výroby.</small></span></label>{ownIssues.length > 0 && <div className="rp-item-warnings">{ownIssues.map(issue => <p key={issue.id}>{issue.text}</p>)}</div>}
     </div>

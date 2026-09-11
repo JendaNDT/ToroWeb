@@ -1,5 +1,9 @@
+import { describeTechnicalPlacement, technicalCatalog, accuracyNames, statusNames } from './technical';
+import { roomWalls, roomWallName, outlineArea, roomOutline } from './room-geometry';
+import { currentAcknowledgement } from './issue-acknowledgements';
+import { prototypeBusiness } from './toro-prototype';
 import { materials } from './configuration';
-import { frontProjection, issuesFor, wallNames, type Furniture, type RoomDesign, type Issue } from './room';
+import { frontProjection, issuesFor, type Furniture, type RoomDesign, type Issue } from './room';
 
 function describeItem(i:Furniture,n:number):string[] {
   const name=(id:string)=>materials.find(m=>m.id===id)?.name||id;
@@ -19,6 +23,7 @@ function describeItem(i:Furniture,n:number):string[] {
     ...(i.type==='laundry'?[`Spotřebiče: ${i.appliances==='side-by-side'?'vedle sebe':'nad sebou'} (pouze ilustrační modely, nejsou součástí výroby)`]:[]),
     ...(i.type==='panel'?[`Počet háčků: ${i.hooks||4}`]:[]),
     ...(i.type==='bench'||i.type==='desk'?[`Kovová podnož: ${i.handles==='black'?'černá':'mosazný odstín'}`]:[]),
+    ...(i.notes?[`Zadání: ${i.notes}`]:[]),
     '',
   ];
 }
@@ -27,15 +32,24 @@ export function describeDesign(design:RoomDesign,issues:Issue[]=issuesFor(design
   return [
     'TORO INTERIORS / '+(design.title||'Můj návrh'),
     `Pokoj: ${design.room.width} × ${design.room.length} cm, výška ${design.room.height} cm`,
+    `Plocha půdorysu: ${Number((outlineArea(roomOutline(design.room))/10000).toFixed(2))} m²; stěn: ${roomWalls(design.room).length}`,
+    ...roomWalls(design.room).map((w,i)=>`S${i+1} · ${w.name}: ${Number(w.length.toFixed(1))} cm`),
     '',
-    ...design.room.openings.map(o=>`${o.type==='window'?'Okno':'Dveře'}: ${wallNames[o.wall]}, ${o.width} × ${o.height} cm, odsazení ${o.offset} cm, parapet ${o.sill} cm`),
+    ...design.room.openings.map(o=>`${o.type==='window'?'Okno':'Dveře'}: ${roomWallName(design.room,o.wall)}, ${o.width} × ${o.height} cm, odsazení ${o.offset} cm, parapet ${o.sill} cm`),
     '',...design.items.flatMap(describeItem),
     'TECHNICKÉ PRVKY',
-    ...(design.technicalPoints??[]).map(p=>`${p.name}: ${wallNames[p.wall]}, střed ${p.offset} cm od začátku stěny, ${p.elevation} cm nad podlahou; ${p.width} × ${p.height} cm`),
+    ...(design.technicalPoints??[]).flatMap(p=>[
+      `${p.label} · ${p.name} (${technicalCatalog[p.type].name}): ${describeTechnicalPlacement(p,design.room)}; ${p.width} × ${p.height} × ${p.depth} cm`,
+      `${statusNames[p.status]}; ${accuracyNames[p.accuracy]}; ${p.locked?'poloha zamčená':'poloha odemčená'}. Přístup: ${p.accessDepth?`${p.accessDepth} cm před prvkem`:'prostor nezadaný'}.`,
+      ...(p.linkedItemId?[`Přiřazeno: ${design.items.find(i=>i.id===p.linkedItemId)?.name??'odebraný kus'} (${p.linkedItemId}).`]:[]),
+      ...(p.groupId?[`Skupina: ${(design.technicalPoints??[]).filter(t=>t.groupId===p.groupId).map(t=>t.label).join(', ')}.`]:[]),
+      ...(p.notes?[`Poznámka: ${p.notes}`]:[]),
+    ]),
     '',
     'KONTROLA NÁVRHU',
-    ...(issues.length?issues.map(issue=>`${{info:'Informace',warning:'Upozornění',problem:'Problém'}[issue.severity]}: ${issue.text}`):['Bez zjištěných kolizí.']),
+    ...(issues.length?issues.map(issue=>{const a=currentAcknowledgement(design,issue);return `${{info:'Informace',warning:'Upozornění',problem:'Problém'}[issue.severity]}: ${issue.text}${a?` [Zákazník vzal na vědomí ${a.acknowledgedAt}${a.note?`; ${a.note}`:''}; nejde o odstranění problému.]`:''}`;}):['Bez zjištěných kolizí podle zadaných údajů. Nezadané sítě a instalační podmínky nejsou ověřené.']),
     '',
+    'PROTOTYP — cenotvorba a příjemce poptávek budou doplněni. Cena se nepočítá a nic se neodesílá.',
     'Orientační podklad pro konzultaci. Materiály, konstrukce a ceny se upřesní s truhlářem.',
   ].join('\n');
 }
@@ -49,16 +63,16 @@ export function downloadText(text:string,name:string,type='text/plain;charset=ut
 
 export type InquiryDetails = {
   name:string;email:string;phone:string;city:string;assembly:boolean;timing:string;notes:string;
-  photos:{name:string;data:string}[];service:boolean;kind:string;preview:string;summary:string;
+  photos:{name:string;data:string}[];service:boolean;kind:string;preview:string;planPreview?:string;summary:string;
 };
 /** One payload builder for download and round-trip validation. */
 export function createInquiryPayload(design:RoomDesign,details:InquiryDetails,warnings:string[]) {
   return {
-    format:'toro-inquiry',version:1,createdAt:new Date().toISOString(),
+    format:'toro-inquiry',version:1,createdAt:new Date().toISOString(),business:prototypeBusiness,
     kind:details.service?details.kind:'Nábytek na míru',
     contact:{name:details.name,email:details.email,phone:details.phone,city:details.city},
     assembly:details.assembly,timing:details.timing,notes:details.notes,photos:details.photos,
-    design:details.service?null:design,preview:details.service?null:details.preview,
+    design:details.service?null:design,preview:details.service?null:details.preview,previews:details.service?null:{perspective:details.preview,plan:details.planPreview??''},acknowledgements:details.service?[]:issuesFor(design).flatMap(i=>{const a=currentAcknowledgement(design,i);return a?[{...a,text:i.text,severity:i.severity}]:[]}),
     summary:details.service?details.notes:details.summary,warnings:details.service?[]:warnings,
   };
 }

@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useReducer, useState } from 'react';
 import { historyReducer } from '@/lib/planner-history';
-import { parseDesign, upgradeDesign, type RoomDesign } from '@/lib/room';
+import { upgradeDesign, type RoomDesign } from '@/lib/room';
 import { createTemplate } from '@/lib/toro-templates';
-import { roomStorageKey as storageKey, restoreRoomSaving } from '@/lib/room-storage';
+import { roomStorageKey as storageKey, restoreRoomSaving, readRoomDraft } from '@/lib/room-storage';
 export function useRoomDesign() {
   const [history,dispatch]=useReducer(historyReducer,undefined,()=>({past:[],present:upgradeDesign(createTemplate('hall')),future:[]}));
   const [ready,setReady]=useState(false),[savedSnapshot,setSavedSnapshot]=useState(''),[storageError,setStorageError]=useState('');
@@ -13,8 +13,8 @@ export function useRoomDesign() {
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(()=>{
     try {
-      const raw=localStorage.getItem(storageKey)??localStorage.getItem('toro-room-v1')??localStorage.getItem('forma-room-v1');
-      if(raw)dispatch({type:'load',design:parseDesign(JSON.parse(raw))});
+      const restored=readRoomDraft(localStorage);
+      if(restored)dispatch({type:'load',design:restored});
       setStorageError('');
     }catch{setStorageError('Uložený návrh se nepodařilo načíst. Původní data zůstávají v prohlížeči; nový návrh zatím ukládejte stažením souboru.');return;}
     finally {setReady(true);}

@@ -1,8 +1,20 @@
 # TORO – architektura plánovače interiéru
 
-**Stav:** návrh architektury  
-**Datum:** 11. 9. 2026  
-**Účel dokumentu:** sjednotit směr dalšího vývoje plánovače TORO před zahájením implementace.
+> Dosavadní místní prototyp a rozsah jeho ověření: [dokončení prototypu](docs/DOKONCENI-PROTOTYPU.md). Tento plán nově zahrnuje schválený konfigurátor jednoho kusu jako hlavní vstup do první verze; tato změna zatím není implementovaná. Cenotvorba a doručování poptávek zůstávají podle zadavatele nenapojené.
+
+**Stav:** pracovní architektura se schváleným doplněním první verze
+
+**Datum:** 11. 9. 2026
+
+**Účel dokumentu:** průběžně zachycovat schválený směr vývoje a odlišovat jej od již implementovaných funkcí.
+
+### Schválené rozhodnutí: nejprve jeden kus, potom pokoj
+
+Konfigurátor **jednoho kusu nábytku** bude součástí první verze a hlavním vstupem do aplikace. Zákazník si vybere typ, upraví kus v samostatném náhledu a následně jej může tlačítkem **Vložit do pokoje** přenést do prostorového návrhu. Přenášejí se všechny parametry kusu; v pokoji jej zákazník rozmístí a může se vracet k jeho detailním úpravám.
+
+Tento společný režim pro všechny podporované typy nahradí dnešní samostatný konfigurátor jedné skříně. Záložka **Celý pokoj** zůstane dostupná i přímo. Oba režimy mají používat jednotný vzhled TORO, ovládání a model nábytku.
+
+Jde o schválený rozsah první verze, nikoli o odložené budoucí rozšíření z kapitoly 27. Dosavadní volba „Jeden kus“ pouze založí pokoj s jedním kusem; sama ještě toto rozhodnutí nenaplňuje.
 
 ---
 
@@ -12,12 +24,14 @@ Plánovač má působit jako přirozená součást značky **TORO Interiors**, n
 
 Zákazník má být schopný:
 
-1. vytvořit místnost,
-2. zadat pevné stavební a technické prvky,
-3. rozmístit nábytek,
-4. průběžně dostávat jednoduchá upozornění na možné problémy,
-5. zkontrolovat návrh,
-6. odeslat nebo připravit podklady pro poptávku TORO.
+1. vybrat a nakonfigurovat jeden kus nábytku,
+2. připravit poptávku tohoto kusu nebo jej vložit do pokoje,
+3. vytvořit místnost a zadat pevné stavební a technické prvky,
+4. rozmístit navržený kus a případný další nábytek,
+5. průběžně dostávat jednoduchá upozornění a zkontrolovat návrh,
+6. připravit podklady pro poptávku TORO.
+
+Zákazník, který chce rovnou zařizovat místnost, může začít záložkou **Celý pokoj**. Pro samotnou konfiguraci a poptávku jednoho kusu není zadání místnosti povinné.
 
 Hlavní princip:
 
@@ -48,11 +62,14 @@ Přechod z webu do plánovače musí působit plynule. Uživatel má stále cít
 
 ## 3. Základní struktura aplikace
 
-Plánovač bude mít **jednu hlavní pracovní obrazovku**.
+Plánovač bude mít **dvě hlavní záložky v jednom společném prostředí**:
 
-Nebude se zbytečně přepínat mezi mnoha samostatnými stránkami. Uprostřed zůstává návrh místnosti a kolem něj se podle potřeby mění nástroje.
+1. **Jeden kus nábytku** — výchozí záložka: výběr typu a detailní konfigurace jednoho kusu.
+2. **Celý pokoj** — prostorový návrh místnosti, technických prvků a více kusů nábytku.
 
-### Hlavní sekce
+Uprostřed zůstává náhled právě upravovaného kusu nebo pokoje. Panely a nástroje odpovídají zvolenému režimu. Přepnutí záložky zachová rozpracovaný kus i pokoj.
+
+### Sekce záložky Celý pokoj
 
 1. **Prostor**
 2. **Technické prvky**
@@ -61,6 +78,22 @@ Nebude se zbytečně přepínat mezi mnoha samostatnými stránkami. Uprostřed 
 5. **Poptávka**
 
 Každá sekce otevře pouze nástroje související s právě prováděným úkolem.
+
+### Záložka Jeden kus nábytku
+
+Zákazník nejprve vybere z celého podporovaného katalogu, v dosavadním prototypu z 15 typů. K dispozici mají být skříně, komody, police, stoly, postele, koupelnové i další kusy včetně atypického prvku. Specializovaný kuchyňský modul zůstává samostatným budoucím rozšířením.
+
+Po výběru typu se zobrazí velký samostatný náhled a pouze jeho relevantní nastavení: rozměry, materiály, vnitřní uspořádání, čela nebo vlastní zadání podle typu. Nástroje pro stěny, okna a sítě patří do režimu pokoje.
+
+Hlavní návazné akce jsou **Vložit do pokoje** a **Připravit poptávku**. Samostatná konfigurace má smysl i pro zákazníka, který pokoj modelovat nechce.
+
+### Přenos kusu a návrat k úpravám
+
+- **Vložit do pokoje** přidá nakonfigurovaný kus do existujícího pokoje. Pokud pokoj ještě není založený, aplikace nabídne jeho vytvoření a rozpracovaný kus zachová.
+- Přenesou se typ, název, rozměry, materiály, vnitřní členění, čela, kování a ostatní parametry nebo poznámky podporované daným typem.
+- Zákazník následně upraví polohu a natočení. Vložení nepřepíše místnost ani již rozmístěný nábytek a respektuje běžné kontroly umístění.
+- Z vybraného kusu v pokoji se lze vrátit do stejného detailního konfigurátoru. Uložení úprav změní tento konkrétní kus; nevytvoří nechtěnou kopii. Potom se znovu vyhodnotí kolize.
+- Oba režimy sdílejí katalog, modely, pravidla parametrů a vzhled. Nahrazení původního konfigurátoru skříně musí zachovat možnost načíst dřívější uložené návrhy.
 
 ---
 
@@ -73,11 +106,12 @@ Má být jednoduchá a nízká.
 Obsah:
 
 - logo TORO,
+- přepnutí **Jeden kus nábytku / Celý pokoj**,
 - název návrhu,
 - krok zpět,
 - krok vpřed, pokud bude podporován,
 - uložení návrhu,
-- přepínač **2D / 3D**,
+- přepínač pohledu podle režimu, u pokoje **2D / 3D**,
 - výrazné tlačítko pro přechod k poptávce.
 
 Do horní lišty nepatří velké množství nastavení.
@@ -92,7 +126,7 @@ Panel zobrazuje pouze obsah právě zvolené hlavní sekce.
 
 ### Střed obrazovky
 
-Největší část prostoru patří samotnému návrhu.
+Největší část prostoru patří samotnému návrhu: samostatnému kusu v první záložce a místnosti v záložce Celý pokoj.
 
 - 2D režim slouží hlavně pro přesné rozmístění a rozměry.
 - 3D režim slouží hlavně pro kontrolu prostoru a vizuální představu.
@@ -137,6 +171,8 @@ Stejný princip platí pro ostatní části.
 ## 6. Technické prvky a inženýrské sítě
 
 Tato oblast je zásadní pro praktické použití návrhu.
+
+Implementační rozsah, vazby na nábytek, migraci dat a podmínky dokončení rozpracovává [návrh další etapy technických prvků](docs/TECHNICKE-PRVKY-DALSI-ETAPA.md). Aktuální zdroje již obsahují 28 typů v osmi kategoriích včetně vody, odpadu, plynu, topení, větrání, dat a servisních překážek. Konkrétní rozsah, ověření a zbývající omezení uvádí [stav implementace](docs/TECHNICKE-PRVKY-IMPLEMENTACE.md); tím není dokončena celá tato architektura.
 
 Uživatel musí být schopný zaznamenat místa, která ovlivňují výrobu a rozmístění nábytku.
 
@@ -239,6 +275,8 @@ Pokročilé hodnoty zůstanou skryté, dokud nejsou potřeba.
 
 Sekce **Nábytek** obsahuje jednotlivé kusy a sestavy.
 
+Katalog jednotlivých kusů a jejich vlastnosti jsou společné se záložkou **Jeden kus nábytku**. Úprava kusu přímo z pokoje používá tentýž konfigurátor a stejná pravidla.
+
 Na první úrovni se zobrazí pouze hlavní kategorie.
 
 Například:
@@ -279,6 +317,8 @@ Toto je jeden z hlavních principů celé architektury.
 Uživatel nikdy nemá současně vidět všechny možnosti programu.
 
 ### Tři úrovně
+
+Nejprve uživatel zvolí záložku **Jeden kus nábytku** nebo **Celý pokoj**. Následující příklady sekcí a kategorií popisují práci uvnitř těchto režimů; samostatný kus odkrývá jen vlastnosti vybraného typu.
 
 #### Úroveň 1 – hlavní činnost
 
@@ -581,20 +621,23 @@ Jeho úkolem je vytvořit **co nejlepší vstupní návrh a podklady pro komunik
 
 ## 23. Doporučená uživatelská cesta
 
-### Varianta pro nového zákazníka
+### Hlavní cesta: od kusu k pokoji
 
 1. Přijde z webu TORO.
-2. Spustí plánovač.
-3. Zadá základní rozměry místnosti.
-4. Přidá dveře a okna.
-5. Přidá důležité technické body.
-6. Vloží a rozmístí nábytek.
-7. Přizpůsobí rozměry a materiály.
-8. Přepne se do 3D a návrh si prohlédne.
-9. Spustí kontrolu.
-10. Opraví nebo přijme upozornění.
-11. Přidá poznámku a fotografie.
-12. Připraví poptávku TORO.
+2. Otevře výchozí záložku **Jeden kus nábytku** a vybere typ.
+3. Nastaví rozměry, materiály a ostatní vlastnosti v samostatném náhledu.
+4. Zvolí **Vložit do pokoje**.
+5. Použije rozpracovanou místnost, nebo ji vytvoří a zadá rozměry, otvory a důležité technické body.
+6. Rozmístí přenesený kus a případně doplní další nábytek.
+7. Podle potřeby se vrátí ke konfiguraci vybraného kusu a upraví jej.
+8. Prohlédne pokoj ve 2D i 3D a projde kontrolu.
+9. Opraví nebo vezme na vědomí upozornění.
+10. Doplní kontakt, poznámku a fotografie a připraví poptávku TORO.
+
+### Přímé alternativy
+
+- **Pouze jeden kus:** po jeho konfiguraci zákazník připraví poptávku bez modelování místnosti.
+- **Rovnou celý pokoj:** zákazník otevře druhou záložku, vytvoří prostor a poté přidává a konfiguruje jednotlivé kusy.
 
 Celá cesta má být pochopitelná bez návodu.
 
@@ -622,6 +665,8 @@ Doporučený princip:
 
 - jedna hlavní aplikace,
 - jeden centrální model návrhu,
+- společná reprezentace a konfigurace nábytku v režimu jednoho kusu i pokoje,
+- rozpracovaný samostatný kus se zachovává nezávisle na rozpracovaném pokoji; vložení vytvoří konkrétní položku pokoje a následná editace z pokoje pracuje s touto položkou,
 - 2D a 3D jsou pouze dva pohledy na stejná data,
 - panely jsou kontextové,
 - technické body a nábytek používají stejný systém výběru a vlastností,
@@ -666,6 +711,8 @@ Návrh by měl logicky obsahovat alespoň:
 - materiály,
 - konfigurace.
 
+Konfigurace kusu nesmí vyžadovat zaměřenou místnost. Při vložení do pokoje se ke stejným parametrům přidá identita položky a její prostorové umístění; další úpravy musí zachovat vazbu na vybraný kus.
+
 ### Kontrola
 - nalezené problémy,
 - upozornění,
@@ -702,7 +749,19 @@ Tyto funkce se nemají zobrazovat dříve, než je uživatel potřebuje.
 
 ## 28. Priorita první další verze
 
-První další verze po schválení architektury by se měla soustředit hlavně na:
+Schválené doplnění první verze nyní zahrnuje:
+
+1. záložku **Jeden kus nábytku** jako výchozí vstup se všemi podporovanými typy,
+2. společný detailní konfigurátor a samostatný náhled pro každý typ,
+3. přenos **Vložit do pokoje** se zachováním všech parametrů a existující místnosti,
+4. návrat z pokoje k úpravám konkrétního kusu bez vytváření kopií,
+5. možnost připravit poptávku jednoho kusu bez místnosti,
+6. nahrazení původního samostatného konfigurátoru skříně při zachování uložených návrhů,
+7. dotažení jednotného vzhledu TORO v obou režimech.
+
+Tyto body jsou zapsaným zadáním, zatím nejsou součástí dosavadního dokončeného prototypu. Ověření musí pokrýt vložení kusu se všemi parametry, zachování rozpracovaného pokoje, opakovanou editaci stejné položky a export obou uživatelských cest.
+
+Dosavadní priority plánovače zůstávají:
 
 1. novou navigační strukturu,
 2. vizuální sjednocení s webem TORO,
@@ -722,6 +781,6 @@ TORO plánovač nemá zákazníkovi ukazovat, jak je technicky složitý.
 
 Má mu umožnit během několika minut pochopit:
 
-> **Tady je můj pokoj. Tady jsou věci, se kterými se musí počítat. Takhle bych chtěl nábytek. A tohle můžu poslat TORO.**
+> **Takhle bych chtěl svůj kus nábytku. Tady je můj pokoj a věci, se kterými se musí počítat. Takhle do něj nábytek zapadá. A tohle můžu předat TORO.**
 
 Pokud se podaří zachovat tento princip, může být aplikace výrazně schopnější než současná verze, aniž by na uživatele působila složitěji.

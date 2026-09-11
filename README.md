@@ -1,12 +1,28 @@
 # ToroWeb — plánovač interiéru TORO
 
-Český prototyp pro návrh pokoje a nábytku ve 2D a 3D. Repozitář obsahuje hotovou samostatnou HTML ukázku, zdrojový projekt pro další vývoj a návrh jeho budoucí architektury.
+Český prototyp pro návrh pokoje, technických prvků a nábytku ve 2D a 3D. Repozitář obsahuje původní samostatnou HTML ukázku, aktuální zdrojový projekt a návrh dalšího vývoje.
 
 ## Aktuální vývoj
 
-První etapa nové architektury přidává pět hlavních sekcí, zásuvky ve 2D/3D, automatické ukládání a rozšířený export. Spouští se ze složky `zdrojove-soubory/`. Rozsah a kompatibilitu popisuje [první etapa](docs/PRVNI-ETAPA.md). Samostatný soubor `TORO-otevrit.html` zatím obsahuje původní ukázku.
+Aktuální zdroje podporují **28 typů technických prvků v osmi kategoriích**: elektřina, voda, odpad, plyn, topení, větrání, data a pevné překážky / servis. Prvky lze umístit na podporované plochy, přetahovat, přesně zaměřit, zamknout a přiřadit k nábytku. Kontroly rozlišují fyzické kolize, prostor pro přístup a chybějící údaje. Ukázková koupelna obsahuje přípojky pro umyvadlo i prádelní sestavu a topný žebřík.
 
-## Rychlé spuštění ukázky
+Nově jsou k dispozici pravoúhlé půdorysy do L a U, výklenky a výstupky, více dveří a oken na stejné stěně, postele a atypické kusy, potvrzování upozornění a půdorys i 3D náhled v poptávce. Katalog má 15 druhů nábytku a šest ukázkových sestav.
+
+Aktuální stav a hranice formátu 4 popisuje [dokončení místního prototypu](docs/DOKONCENI-PROTOTYPU.md), předchozí rozšíření [implementace technických prvků](docs/TECHNICKE-PRVKY-IMPLEMENTACE.md). Předchozí stav zachycuje [první etapa](docs/PRVNI-ETAPA.md). Samostatný soubor `TORO-otevrit.html` v kořenu nadále obsahuje původní ukázku; aktuální distribuci vytvoří příkaz níže.
+
+## Aktuální balíček k předání
+
+Schválený další postup a stav pro navazující práci obsahuje [předání pro nový chat](docs/PREDANI-DALSI-PRACE.md). Konfigurátor všech jednotlivých kusů jako hlavní vstup je nově zapsaný v architektuře; jeho přestavba zatím není implementovaná.
+
+Ve složce `zdrojove-soubory/` po instalaci závislostí spusťte:
+
+```sh
+npm run package:demo
+```
+
+Příkaz provede produkční sestavení a vytvoří `outputs/TORO-prototyp-RRRR-MM-DD.zip` se samostatným HTML, českým návodem, označením verze a licencemi. Pro vytvoření archivu je vedle Node.js potřeba Python 3. Příjemce dostává soubor určený k rozbalení a otevření bez instalace; knihovny, obrázky a písma jsou vložené v HTML. Automaticky je ověřen obsah a integrita archivu; otevření výsledného místního souboru dvojklikem nebylo v tomto prostředí ověřeno.
+
+## Původní ukázka v kořenu
 
 1. Stáhněte repozitář přes **Code → Download ZIP** a rozbalte jej.
 2. Otevřete `TORO-otevrit.html` v prohlížeči Chrome, Edge nebo Firefox.
@@ -40,7 +56,7 @@ Podrobný popis funkcí, postup ověření a omezení prototypu obsahuje [README
 
 ## Ukládání a poptávky
 
-Návrhy se ukládají v prohlížeči nebo se přenášejí pomocí exportovaného souboru. Poptávkový průvodce připravuje soubor s návrhem a přílohami; současná verze jej sama nikam neodesílá. Cena a výrobní proveditelnost se ověřují s truhlářem.
+Návrhy se ukládají v prohlížeči nebo se přenášejí pomocí exportovaného souboru. Poptávkový průvodce připravuje soubor s návrhem a přílohami; současná verze jej sama nikam neodesílá. Podle rozhodnutí zadavatele zůstává cenotvorba i příjemce poptávek nenapojený. Pro předvedení lze doplnit označený ukázkový kontakt. Skutečné obchodní údaje a výrobní proveditelnost se upřesní s TORO.
 
 ## Původ této verze
 

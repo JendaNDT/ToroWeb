@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { materials, type MaterialId } from './configuration';
 import { buildWardrobe } from './wardrobe-model';
 import { asWardrobe, type Furniture, type Room, type Wall } from './room';
+import { roomOutline, roomWalls, pointInRoom } from './room-geometry';
 import { buildSpecialFurniture } from './special-furniture-model';
 
 export function buildFurniture(item:Furniture,texture:THREE.Texture|null,showFront:boolean):THREE.Group {
@@ -78,49 +79,62 @@ export function buildRoom(room:Room,texture:THREE.Texture|null):RoomShell {
   const door=new THREE.MeshStandardMaterial({color:'#c8bdab',roughness:.8});
   const metal=new THREE.MeshStandardMaterial({color:'#4b5347',metalness:.5,roughness:.4});
   const floorTexture=room.floor==='oak'&&texture?texture.clone():null;
-  if(floorTexture){floorTexture.repeat.set(w/1.3,l/1.3);floorTexture.needsUpdate=true;}
+  if(floorTexture){floorTexture.repeat.set(room.outline?1/1.3:w/1.3,room.outline?1/1.3:l/1.3);floorTexture.needsUpdate=true;}
   const floorMaterial=new THREE.MeshStandardMaterial({color:room.floor==='oak'?'#e9d8b6':room.floor==='light'?'#dfdfd7':'#72776e',map:floorTexture,roughness:.85});
-  const floor=new THREE.Mesh(new THREE.BoxGeometry(w+.2,.12,l+.2),floorMaterial);floor.position.y=-.06;floor.receiveShadow=true;group.add(floor);
-  // Thin floor seams describe individual boards without needing a second texture.
+  let floor:THREE.Mesh;
+  if(room.outline){
+    const shape=new THREE.Shape(roomOutline(room).map(p=>new THREE.Vector2((p.x-room.width/2)/100,-(p.z-room.length/2)/100)));
+    floor=new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:.12,bevelEnabled:false}),floorMaterial);floor.rotation.x=-Math.PI/2;floor.position.y=-.12;
+  }else{floor=new THREE.Mesh(new THREE.BoxGeometry(w+.2,.12,l+.2),floorMaterial);floor.position.y=-.06;}
+  floor.receiveShadow=true;floor.userData.roomFloor=true;group.add(floor);
   const seamMaterial=new THREE.LineBasicMaterial({color:room.floor==='dark'?'#c8cbbd':'#696848',transparent:true,opacity:room.floor==='oak'?.1:.06});
-  for(let x=-w/2+.24;x<w/2;x+=.24){const seam=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x,.002,-l/2),new THREE.Vector3(x,.002,l/2)]),seamMaterial);group.add(seam);}
+  const boundaries=[...new Set(roomOutline(room).map(p=>(p.z-room.length/2)/100))].sort((a,b)=>a-b);
+  for(let x=-w/2+.24;x<w/2;x+=.24)for(let i=0;i<boundaries.length-1;i++){
+    const a=boundaries[i],b=boundaries[i+1];if(!pointInRoom(room,x*100,(a+b)*50))continue;
+    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x,.002,a),new THREE.Vector3(x,.002,b)]),seamMaterial));
+  }
   const walls={} as Record<Wall,THREE.Group>;
-  for(const wall of ['north','east','south','west'] as Wall[]){
-    const wallGroup=new THREE.Group(),length=wall==='north'||wall==='south'?w:l;
+  for(const segment of roomWalls(room)){
+    const wallGroup=new THREE.Group(),length=segment.length/100;
     function slab(cx:number,cy:number,sx:number,sy:number,z=0,depth=t,material:THREE.Material=plaster){
       if(sx<=.001||sy<=.001)return;
-      const mesh=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,depth),material);mesh.position.set(cx,cy,z);mesh.castShadow=true;mesh.receiveShadow=true;wallGroup.add(mesh);
+      const mesh=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,depth),material);mesh.position.set(cx,cy,z);mesh.castShadow=true;mesh.receiveShadow=true;wallGroup.add(mesh);return mesh;
     }
-    const opening=room.openings.find(o=>o.wall===wall);
-    if(opening){
+    const openings=room.openings.filter(o=>o.wall===segment.id&&o.offset>=0&&o.offset+o.width<=segment.length+.1&&o.sill+o.height<=room.height+.1);
+    // Split at every horizontal and vertical opening edge. Cells describe the union of holes,
+    // including two windows above one another and overlapping openings awaiting correction.
+    const xs=[...new Set([0,length,...openings.flatMap(o=>[o.offset/100,(o.offset+o.width)/100])])].sort((a,b)=>a-b);
+    const ys=[...new Set([0,h,...openings.flatMap(o=>[o.sill/100,(o.sill+o.height)/100])])].sort((a,b)=>a-b);
+    for(let i=0;i<xs.length-1;i++)for(let j=0;j<ys.length-1;j++){
+      const x=(xs[i]+xs[i+1])/2,y=(ys[j]+ys[j+1])/2;
+      if(!openings.some(o=>x>o.offset/100&&x<(o.offset+o.width)/100&&y>o.sill/100&&y<(o.sill+o.height)/100)){
+        const mesh=slab(x-length/2,y,xs[i+1]-xs[i],ys[j+1]-ys[j]);if(mesh)mesh.userData.wallSolid=true;
+      }
+    }
+    for(const opening of openings){
       const start=-length/2+opening.offset/100,ow=opening.width/100,oh=opening.height/100,sill=opening.sill/100,cx=start+ow/2;
-      slab((-length/2+start)/2,h/2,start+length/2,h);
-      slab((start+ow+length/2)/2,h/2,length/2-start-ow,h);
-      slab(cx,(sill+oh+h)/2,ow,h-sill-oh);
-      if(sill>0)slab(cx,sill/2,ow,sill);
-      // Window and door frames occupy actual wall openings.
-      slab(start+.027,sill+oh/2,.054,oh+.07,.003,.13,trim);
-      slab(start+ow-.027,sill+oh/2,.054,oh+.07,.003,.13,trim);
-      slab(cx,sill+oh-.027,ow,.054,.003,.13,trim);
+      const frame=new THREE.Group();frame.userData.openingId=opening.id;
+      const count=wallGroup.children.length;
+      slab(start+.027,sill+oh/2,.054,oh+.07,.003,.13,trim);slab(start+ow-.027,sill+oh/2,.054,oh+.07,.003,.13,trim);slab(cx,sill+oh-.027,ow,.054,.003,.13,trim);
       if(opening.type==='window'){
         slab(cx,sill+.027,ow,.054,.003,.13,trim);slab(cx,sill+oh/2,ow-.10,oh-.10,-.01,.015,glass);
         slab(cx,sill+oh/2,.04,oh-.06,.025,.06,trim);slab(cx,sill-.035,ow+.12,.07,.045,.24,trim);
       }else{
-        slab(cx,oh/2,ow-.09,oh-.055,-.04,.035,door);
-        slab(start+ow-.16,1.02,.12,.018,.007,.09,metal);
+        slab(cx,oh/2,ow-.09,oh-.055,-.04,.035,door);slab(start+ow-.16,Math.min(1.02,oh*.5),.12,.018,.007,.09,metal);
       }
-      if(opening.type==='door'){
-        slab((-length/2+start)/2,.04,start+length/2,.08,.065,.03,trim);
-        slab((start+ow+length/2)/2,.04,length/2-start-ow,.08,.065,.03,trim);
-      }else slab(0,.04,length,.08,.065,.03,trim);
-    }else{slab(0,h/2,length,h);slab(0,.04,length,.08,.065,.03,trim);}
+      for(const child of wallGroup.children.slice(count))frame.add(child);wallGroup.add(frame);
+    }
+    for(let i=0;i<xs.length-1;i++){
+      const x=(xs[i]+xs[i+1])/2;if(!openings.some(o=>o.type==='door'&&x>o.offset/100&&x<(o.offset+o.width)/100))slab(x-length/2,.04,xs[i+1]-xs[i],.08,.065,.03,trim);
+    }
     slab(0,h+.012,length+.05,.025,0,.115,edge);
-    // Local x runs in the same direction as the position values used in the UI.
-    if(wall==='north')wallGroup.position.z=-l/2-t/2;
-    if(wall==='south'){wallGroup.position.z=l/2+t/2;wallGroup.scale.z=-1;}
-    if(wall==='west'){wallGroup.position.x=-w/2-t/2;wallGroup.rotation.y=Math.PI/2;wallGroup.scale.x=-1;}
-    if(wall==='east'){wallGroup.position.x=w/2+t/2;wallGroup.rotation.y=-Math.PI/2;}
-    walls[wall]=wallGroup;group.add(wallGroup);
+    const {u,normal:n,start,end}=segment;
+    // A basis preserves legacy offset directions (left to right / back to front).
+    const basis=new THREE.Matrix4().makeBasis(new THREE.Vector3(u.x,0,u.z),new THREE.Vector3(0,1,0),new THREE.Vector3(n.x,0,n.z));
+    basis.setPosition((start.x+end.x)/200-n.x*t/2,0,(start.z+end.z)/200-n.z*t/2);
+    basis.decompose(wallGroup.position,wallGroup.quaternion,wallGroup.scale);
+    wallGroup.userData.inward={x:n.x,z:n.z};wallGroup.userData.wallId=segment.id;
+    walls[segment.id]=wallGroup;group.add(wallGroup);
   }
   group.userData.materials=[plaster,trim,edge,glass,door,metal,floorMaterial,seamMaterial];
   return {group,walls,floorTexture};
