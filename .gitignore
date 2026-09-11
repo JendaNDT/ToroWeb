@@ -1,0 +1,10 @@
+# Místní systémové soubory
+.DS_Store
+Thumbs.db
+
+# Instalované závislosti a místní přihlašovací údaje
+node_modules/
+.env
+.env.*
+!.env.example
+!.env.sample

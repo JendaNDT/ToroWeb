@@ -1,0 +1,30 @@
+'use client';
+import { useId, useState } from 'react';
+import { Check, DoorOpen, PanelTop, Plus, Trash2, Columns3, LibraryBig, Rows3, Archive, RectangleHorizontal, Armchair, RectangleVertical, Bath, WashingMachine, Monitor, Table2, Shirt } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
+import { openingLimits, wallNames, type FurnitureType, type Room, type Wall, type Opening } from '@/lib/room';
+
+export function FurnitureIcon({type,size=24}:{type:FurnitureType;size?:number}){
+  const Icon={wardrobe:Columns3,builtin:DoorOpen,shoe:Archive,dresser:Rows3,bookcase:LibraryBig,shelf:RectangleHorizontal,bench:Armchair,panel:Shirt,mirror:RectangleVertical,vanity:Bath,laundry:WashingMachine,desk:Table2,tv:Monitor}[type];
+  return <Icon size={size} strokeWidth={1.4}/>;
+}
+export function NumberField({label,value,min,max,onChange,unit='cm',step=1}:{label:string;value:number;min:number;max:number;onChange:(n:number)=>void;unit?:string;step?:number}){
+  const id=useId(),[draft,setDraft]=useState<string|null>(null);
+  function commit(){if(draft!==null&&draft.trim()!==''&&Number.isFinite(Number(draft))){const n=Math.round(Number(draft)/step)*step;onChange(Math.min(max,Math.max(min,n)));}setDraft(null);}
+  return <div className="rp-number"><label htmlFor={id}>{label}</label><div><Input id={id} type="number" step={step} min={min} max={max} value={draft??value} onChange={e=>setDraft(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();if(e.key==='Escape'){e.preventDefault();setDraft(null);}}}/><span>{unit}</span></div></div>;
+}
+export function RoomControls({room,onChange}:{room:Room;onChange:(patch:Partial<Room>)=>void}){
+  const colors=[{color:'#edece5',name:'Teplá bílá'},{color:'#ffffff',name:'Čistá bílá'},{color:'#c4cbbd',name:'Šalvějová'},{color:'#d7c7b6',name:'Písková'},{color:'#a9b4bb',name:'Modrošedá'}];
+  function updateOpening(id:string,patch:Partial<Opening>){onChange({openings:room.openings.map(o=>o.id===id?openingLimits(room,{...o,...patch}):o)});}
+  function addOpening(type:'door'|'window'){
+    const free=(Object.keys(wallNames) as Wall[]).find(w=>!room.openings.some(o=>o.wall===w));if(!free)return;
+    onChange({openings:[...room.openings,openingLimits(room,{id:crypto.randomUUID(),type,wall:free,offset:80,width:type==='door'?90:120,height:type==='door'?210:120,sill:type==='door'?0:100})]});
+  }
+  return <div className="rp-room-controls"><div className="rp-section-title"><span>01 / PROSTOR</span><h2>Váš pokoj</h2><p>Všechny rozměry zadávejte v centimetrech.</p></div><div className="rp-field-stack"><NumberField label="Šířka pokoje" value={room.width} min={120} max={1000} onChange={width=>onChange({width})}/><NumberField label="Délka pokoje" value={room.length} min={120} max={1000} onChange={length=>onChange({length})}/><NumberField label="Výška stropu" value={room.height} min={220} max={400} onChange={height=>onChange({height})}/></div>
+    <div className="rp-control-section"><div className="rp-field-heading"><strong>Barva stěn</strong></div><div className="rp-wall-colors">{colors.map(c=><button key={c.color} style={{background:c.color}} className={room.wallColor===c.color?'active':''} aria-label={c.name} aria-pressed={room.wallColor===c.color} title={c.name} onClick={()=>onChange({wallColor:c.color})}>{room.wallColor===c.color&&<Check size={15}/>}</button>)}</div></div>
+    <div className="rp-control-section"><div className="rp-field-heading"><strong>Podlaha</strong></div><div className="rp-floor-options">{([{id:'oak',label:'Dub',color:'#c6ae89'},{id:'light',label:'Světlá',color:'#dfdfd7'},{id:'dark',label:'Tmavá',color:'#72776e'}] as const).map(f=><button key={f.id} aria-pressed={room.floor===f.id} className={room.floor===f.id?'active':''} onClick={()=>onChange({floor:f.id})}><span style={{background:f.color}} className={f.id==='oak'?'mat-oak':''}/>{f.label}</button>)}</div></div>
+    <div className="rp-control-section"><div className="rp-field-heading"><strong>Dveře a okna</strong><span>{room.openings.length} / 4</span></div><p className="rp-note">V této verzi jeden otvor na každé stěně.</p><div className="rp-opening-list">{room.openings.map(o=><details key={o.id} className="rp-opening"><summary>{o.type==='door'?<DoorOpen size={17}/>:<PanelTop size={17}/>}<span>{o.type==='door'?'Dveře':'Okno'}<small>{wallNames[o.wall]}</small></span><span className="rp-opening-chevron">⌄</span></summary><div className="rp-opening-content"><label className="rp-select-label">Stěna<NativeSelect value={o.wall} onChange={e=>updateOpening(o.id,{wall:e.target.value as Wall})}>{Object.entries(wallNames).map(([key,label])=><option key={key} value={key} disabled={room.openings.some(other=>other.id!==o.id&&other.wall===key)}>{label}</option>)}</NativeSelect></label><NumberField label="Šířka otvoru" value={o.width} min={40} max={240} onChange={width=>updateOpening(o.id,{width})}/><NumberField label="Výška otvoru" value={o.height} min={40} max={room.height-10} onChange={height=>updateOpening(o.id,{height})}/><NumberField label="Od začátku stěny" value={o.offset} min={10} max={(o.wall==='north'||o.wall==='south'?room.width:room.length)-o.width-10} onChange={offset=>updateOpening(o.id,{offset})}/>{o.type==='window'&&<NumberField label="Výška parapetu" value={o.sill} min={0} max={room.height-o.height-5} onChange={sill=>updateOpening(o.id,{sill})}/>}<p className="rp-note">Počátek: vlevo u zadní/přední stěny, vzadu u bočních stěn.</p><Button variant="ghost" className="rp-delete-text" onClick={()=>onChange({openings:room.openings.filter(x=>x.id!==o.id)})}><Trash2 size={14}/> Odebrat otvor</Button></div></details>)}</div><div className="rp-opening-add"><Button variant="outline" disabled={room.openings.length>=4} onClick={()=>addOpening('door')}><Plus size={14}/> Dveře</Button><Button variant="outline" disabled={room.openings.length>=4} onClick={()=>addOpening('window')}><Plus size={14}/> Okno</Button></div></div>
+  </div>;
+}

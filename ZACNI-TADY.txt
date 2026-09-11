@@ -1,0 +1,42 @@
+﻿TORO Interiors — plánovač pokoje a nábytku
+Verze pro předvedení kamarádovi • 11. 9. 2026
+
+JAK SPUSTIT UKÁZKU
+1. Rozbalte celý ZIP (ve Windows pravým tlačítkem → Extrahovat vše).
+2. Otevřete soubor TORO-otevrit.html v prohlížeči Edge, Chrome nebo Firefox.
+3. Hotovo. Ukázka nepotřebuje instalaci, přihlášení ani internet.
+
+JAK JI PŘEDAT
+Pošlete celý ZIP, nebo samotný soubor TORO-otevrit.html.
+HTML obsahuje i všechny obrázky, styly a 3D zobrazení.
+
+CO VYZKOUŠET
+• Nastavení rozměrů, barev, dveří a oken pokoje.
+• Pět sestav: předsíň, koupelna, šatna, pracovna a obývací pokoj.
+• 13 typů nábytku včetně umyvadlové skříňky, lavice, věšáků a pracovního stolu.
+• Rozměry, materiály a vnitřní uspořádání jednotlivých kusů.
+• Rozmístění nábytku ve 3D a v půdorysu, otočení a upozornění na kolize.
+• Odkaz „Jedna skříň“ v horní navigaci otevře původní konfigurátor.
+  Zpět do pokoje se vrátíte kliknutím na logo TORO.
+
+NÁVRHY A POPTÁVKY
+„Uložit návrh“ ukládá data pouze do prohlížeče na daném počítači.
+Pro přenos hotového pokoje použijte tlačítko „Stáhnout upravitelný návrh“.
+Přesun HTML do jiné složky může změnit dostupnost uložených návrhů.
+Cenu určuje truhlář individuálně. Průvodce poptávkou připraví soubor s náhledem,
+kontaktem a případnými fotografiemi. Nic se nikam neodesílá.
+Kuchyně lze zatím popsat jako atypickou zakázku; vlastní kuchyňský 3D modul chybí.
+Současný rozpracovaný návrh z jiného prohlížeče se do tohoto ZIPu nekopíruje.
+
+ZDROJOVÉ SOUBORY PRO DALŠÍ VÝVOJ
+Složka zdrojove-soubory obsahuje upravitelný web v Reactu a TypeScriptu,
+včetně textury, závislostí v package-lock.json a podrobného README.md.
+Pro jeho spuštění vývojář potřebuje Node.js 22.13 nebo novější:
+  npm ci
+  node scripts/run-framework.mjs dev
+Potom otevře http://localhost:5173/.
+Tyto kroky nejsou potřeba pro samostatnou HTML ukázku.
+
+KDYŽ SE SOUBOR NEOTEVŘE
+HTML nejprve rozbalte či stáhněte na disk a otevřete přímo v prohlížeči,
+nikoli v náhledu e-mailu. 3D zobrazení vyžaduje podporu WebGL.
