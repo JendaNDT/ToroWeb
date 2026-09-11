@@ -2,6 +2,10 @@
 
 Český prototyp přizpůsobený sortimentu TORO Interiors (in-toro.com). React 19, TypeScript, vinext a Three.js.
 
+## Změny první etapy
+
+Aktuální rozhraní a datový formát verze 2 popisuje [první etapa](../docs/PRVNI-ETAPA.md). Nově zahrnuje zásuvky, kontextové panely a automatické ukládání pod klíčem `toro-room-v2` s importem starších verzí. Popis původního prototypu níže zůstává jako výchozí reference; jeho údaje o navigaci a verzi úložiště jsou tímto nahrazeny.
+
 ## Spuštění
 
 Node.js 22.13 nebo novější, závislosti podle přiloženého zámku:
@@ -78,3 +82,9 @@ Kuchyně zatím nemají vlastní 3D modulový systém, pracovní desku, spotřeb
 Není připojen objednávkový systém, platba, e-mail ani databáze zákazníků. Uložené návrhy zůstávají v daném prohlížeči nebo ve staženém souboru. Aktualizace místního projektu sama nemění dříve publikovanou verzi.
 
 Dubová textura `public/textures/oak.png` byla vytvořena pomocí imagegen pro tento projekt. Logo TORO v `public/brand/toro-logo.png` pochází z webu truhláře, který zadavatel výslovně určil jako podklad: https://www.in-toro.com/wp-content/uploads/2025/09/cropped-cropped-StampstarTORO-1.png. Ilustrace sestav jsou vlastní SVG. Zdrojový kód referenčních webů nebyl kopírován.
+
+## Kontrola oprav auditu
+
+`npm run check` spustí doménové regrese, auditní reprodukce, ESLint, TypeScript a produkční sestavení. Bezpečnost závislostí ověřuje `npm audit --audit-level=moderate`. Stejné kontroly jsou připravené v GitHub Actions pro PR a změny na main.
+
+Podrobnosti a hranice ověření: [opravy auditu](../docs/OPRAVY-AUDITU-2026-09-11.md).

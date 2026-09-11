@@ -115,3 +115,6 @@ body { line-height: 1.5; }
   .step-item.active { background: #edf3e5; }
   .step-item i { display: none; }
 }
+
+/* TORO brand tokens, verified against in-toro.com, 2026-09-11. */
+:root { --toro-gold: #f1980b; --toro-ink: #1b130c; --toro-paper: #f3f0e8; --font-sans: Inter, Arial, sans-serif; }
