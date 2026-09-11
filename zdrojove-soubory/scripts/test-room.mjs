@@ -9,14 +9,14 @@ import ts from 'typescript';
 const output=path.resolve('.sites-runtime/room-tests');
 fs.mkdirSync(output,{recursive:true});
 fs.writeFileSync(path.join(output,'package.json'),JSON.stringify({type:'commonjs'}));
-for(const name of ['configuration','wardrobe-model','room','special-furniture-model','room-model','toro-templates','toro-inquiry']){
+for(const name of ['configuration','wardrobe-model','room','room-storage','special-furniture-model','room-model','toro-templates','toro-inquiry','technical-model','planner-history']){
   const source=fs.readFileSync(`lib/${name}.ts`,'utf8');
   const result=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}});
   fs.writeFileSync(path.join(output,`${name}.js`),result.outputText);
 }
 const require=createRequire(path.join(output,'package.json'));
 const THREE=require('three');
-const {initialRoom,catalog,placeItem,footprint,boundsOf,normalizeItem,openingLimits,resizeRoom,attachToWall,issuesFor,newFurniture,findFreePosition,furniturePrice,roomDesignSchema}=require('./room.js');
+const {initialRoom,catalog,placeItem,boundsOf,normalizeItem,openingLimits,resizeRoom,attachToWall,issuesFor,newFurniture,findFreePosition,furniturePrice,roomDesignSchema}=require('./room.js');
 const {buildFurniture,buildRoom}=require('./room-model.js');
 const {disposeGroup}=require('./wardrobe-model.js');
 let tests=0;
@@ -135,5 +135,156 @@ test('Neighbour snapping joins a cabinet row and can be turned off',()=>{
 });
 test('Inquiry description distinguishes existing items and names specialised fittings',()=>{
  const d=createTemplate('bath');d.items[1].existing=true;const text=describeDesign(d);assert(text.includes('STÁVAJÍCÍ'));assert(text.includes('Počet umyvadel: 2'));assert(text.includes('Spotřebiče: nad sebou'));
+});
+
+
+const {parseDesign,upgradeDesign,normalizeTechnicalPoint,technicalPosition,nearestWallPoint}=require('./room.js');
+const {historyReducer}=require('./planner-history.js');
+const {buildTechnicalPoint}=require('./technical-model.js');
+const socket=(wall='north',offset=100,elevation=30)=>({id:'socket-a',type:'socket',name:'Zásuvka 230 V',wall,offset,elevation,width:8,height:8});
+
+test('Old room and inquiry imports migrate without losing furniture or altering the source',()=>{
+ const old=fixture(),original=JSON.stringify(old);
+ const migrated=parseDesign(old);assert.equal(migrated.version,2);assert.deepEqual(migrated.technicalPoints,[]);
+ assert.deepEqual(migrated.items,old.items);assert.equal(JSON.stringify(old),original);
+ assert.deepEqual(parseDesign({format:'toro-inquiry',design:old}),migrated);
+ assert.throws(()=>parseDesign({format:'toro-inquiry',design:null}));
+});
+test('Version 2 round trips sockets and rejects future, malformed and ambiguous data',()=>{
+ const d={...upgradeDesign(fixture()),technicalPoints:[socket()]};
+ assert.deepEqual(parseDesign(JSON.parse(JSON.stringify(d))),d);
+ for(const value of [{...d,version:3},{...d,version:1},{...d,technicalPoints:[socket(),socket()]},{...d,technicalPoints:[{...socket(),offset:NaN}]},{...d,technicalPoints:[{...socket(),elevation:900}]},{...d,technicalPoints:[{...socket(),type:'unknown'}]},{...d,technicalPoints:[{...socket(),id:d.items[0].id}]}])assert.throws(()=>parseDesign(value));
+});
+test('Socket wall position is consistent for four walls and a smaller room',()=>{
+ const room={...fixture().room,openings:[]};
+ const expected={north:{x:-160,z:-210},south:{x:-160,z:210},west:{x:-260,z:-110},east:{x:260,z:-110}};
+ for(const wall of Object.keys(expected)) {
+   const point=socket(wall);assert.deepEqual(technicalPosition(point,room),expected[wall]);
+   assert.equal(nearestWallPoint(room,expected[wall].x,expected[wall].z).wall,wall);
+   const fixed=normalizeTechnicalPoint({...point,offset:999,elevation:999},room);
+   assert.equal(fixed.offset,(wall==='north'||wall==='south'?520:420)-4);assert.equal(fixed.elevation,266);
+ }
+ const resized=resizeRoom({...upgradeDesign(fixture()),technicalPoints:[socket('north',500,265)]},{width:240,height:230});
+ assert.equal(resized.technicalPoints[0].offset,236);assert.equal(resized.technicalPoints[0].elevation,226);assert(roomDesignSchema.safeParse(resized).success);
+});
+test('Socket access warnings use horizontal and vertical overlap on every wall',()=>{
+ const room={...fixture().room,openings:[]};
+ for(const wall of ['north','south','west','east']) {
+   const piece=attachToWall(newFurniture('dresser',room,'dresser'),room,wall);
+   const p=socket(wall,wall==='north'||wall==='south'?room.width/2:room.length/2);
+   const d={version:2,room,items:[piece],technicalPoints:[p]};
+   const issues=issuesFor(d).filter(i=>i.kind==='technical');assert.equal(issues.length,1,wall);
+   assert.equal(issues[0].severity,'warning');assert.deepEqual(issues[0].technicalPointIds,[p.id]);
+   assert.equal(issuesFor({...d,technicalPoints:[{...p,elevation:180}]}).length,0,'socket above dresser '+wall);
+   assert.equal(issuesFor({...d,items:[{...piece,x:0,z:0}]}).length,0,'free access '+wall);
+ }
+});
+test('A socket in a window is a problem and can be clear below its sill',()=>{
+ const d=upgradeDesign(fixture());d.items=[];
+ d.technicalPoints=[socket('north',350,150)];assert(issuesFor(d).some(i=>i.severity==='problem'&&i.technicalPointIds.includes('socket-a')));
+ d.technicalPoints[0].elevation=30;assert.equal(issuesFor(d).length,0);
+});
+test('History restores technical points and invalidates redo after a new change',()=>{
+ const d=upgradeDesign(fixture());let h={past:[],present:d,future:[]};
+ h=historyReducer(h,{type:'change',update:d=>({...d,technicalPoints:[socket()]})});
+ h=historyReducer(h,{type:'undo'});assert.equal(h.present.technicalPoints.length,0);
+ h=historyReducer(h,{type:'redo'});assert.equal(h.present.technicalPoints.length,1);
+ h=historyReducer(h,{type:'undo'});h=historyReducer(h,{type:'change',update:d=>({...d,title:'Jiný návrh'})});assert.equal(h.future.length,0);
+});
+test('Socket geometry matches the domain position and fits its measured backplate',()=>{
+ const room=fixture().room;
+ for(const wall of ['north','south','west','east']) {
+   const p=socket(wall),object=buildTechnicalPoint(p,room),position=technicalPosition(p,room);
+   assert.deepEqual(object.position.toArray(),[position.x/100,.3,position.z/100]);
+   object.updateMatrixWorld(true);const box=new THREE.Box3().setFromObject(object),size=box.getSize(new THREE.Vector3());
+   assert(Math.abs(size.y-.08)<1e-6);assert(size.x>0&&size.z>0);disposeGroup(object);
+ }
+});
+test('The inquiry includes the same measured socket as the editable design',()=>{
+ const d={...upgradeDesign(fixture()),technicalPoints:[socket('west',145,115)]};
+ const text=describeDesign(d);assert(text.includes('TECHNICKÉ PRVKY'));assert(text.includes('Zásuvka 230 V'));assert(text.includes('145 cm'));assert(text.includes('115 cm'));
+});
+
+
+test('Full inquiry payload preserves socket, warnings, preview and attachments on JSON export',()=>{
+ const {createInquiryPayload}=require('./toro-inquiry.js');
+ const d={...upgradeDesign(fixture()),technicalPoints:[socket('west',145,115)]};
+ const details={name:'Test',email:'test@example.com',phone:'',city:'Plzeň',assembly:true,timing:'Dle domluvy',notes:'Ponechat přístup',photos:[{name:'test.png',data:'data:image/png;base64,dGVzdA=='}],service:false,kind:'',preview:'data:image/png;base64,bmFobGVk',summary:describeDesign(d)};
+ const exported=JSON.parse(JSON.stringify(createInquiryPayload(d,details,['Kontrola přístupu'])));
+ assert.deepEqual(parseDesign(exported),d);assert.deepEqual(exported.photos,details.photos);assert.equal(exported.preview,details.preview);assert.deepEqual(exported.warnings,['Kontrola přístupu']);
+});
+test('Existing version 2 pointer coordinates with extra precision remain readable',()=>{
+ const d={...upgradeDesign(fixture()),technicalPoints:[socket('west',172.31707318202297,30)]};
+ const loaded=parseDesign(d);assert.equal(loaded.technicalPoints[0].offset,172.3);
+});
+test('Fractional sockets at every wall edge survive repeated save and reload',()=>{
+ const d=upgradeDesign(fixture());
+ for(const wall of ['north','east','south','west'])for(const width of [6.1,8.7])for(const height of [8.1,9.7]){
+  const length=['north','south'].includes(wall)?d.room.width:d.room.length;
+  for(const offset of [width/2,length-width/2])for(const elevation of [height/2,d.room.height-height/2]){
+   let saved={...d,technicalPoints:[{...socket(wall,offset,elevation),width,height}]};
+   for(let n=0;n<3;n++)saved=parseDesign(JSON.parse(JSON.stringify(saved)));
+   assert(roomDesignSchema.safeParse(saved).success);
+   assert(Math.abs(saved.technicalPoints[0].offset-offset)<.051);assert(Math.abs(saved.technicalPoints[0].elevation-elevation)<.051);
+   assert.deepEqual(parseDesign(JSON.parse(JSON.stringify(saved))),saved);
+  }
+ }
+});
+test('Collision envelope contains real geometry in every rotation, size and front variant',()=>{
+ const room={...fixture().room,width:1000,length:1000,height:400,openings:[]};let variants=0;
+ for(const {type} of catalog)for(const size of ['small','normal','large'])for(const doors of ['open','hinged','sliding'])for(const rotation of [0,90,180,270])for(const visible of [false,true]){
+  const original=newFurniture(type,room,type);
+  const item={...normalizeItem({...original,...(size==='normal'?{}:{width:size==='small'?30:500,height:size==='small'?2:400,depth:size==='small'?3:100}),doors,sections:['drawers'],rotation},room),x:0,z:0};
+  const group=buildFurniture(item,null,visible);group.updateMatrixWorld(true);
+  const actual=new THREE.Box3().setFromObject(group),bounds=boundsOf(item),epsilon=.00001;
+  for(const [min,max,axis] of [['left','right','x'],['back','front','z'],['bottom','top','y']]){
+   assert(actual.min[axis]*100>=bounds[min]-epsilon,`${type}/${size}/${doors}/${rotation}/${visible}: ${min}`);
+   assert(actual.max[axis]*100<=bounds[max]+epsilon,`${type}/${size}/${doors}/${rotation}/${visible}: ${max}`);
+  }
+  // Front visibility is a viewing aid and must never change physical collision bounds.
+  for(const wall of ['north','east','south','west']){
+   const atWall=placeItem(item,room,wall==='east'?9999:wall==='west'?-9999:0,wall==='south'?9999:wall==='north'?-9999:0);
+   assert(!issuesFor({version:2,room,items:[atWall],technicalPoints:[]}).some(i=>i.kind==='outside'));
+  }
+  disposeGroup(group);variants++;
+ }
+ console.log(`  ${variants} physical envelope variants checked`);
+});
+test('Closed fronts collide with a wall and neighbouring furniture beyond the carcass',()=>{
+ const room={...fixture().room,openings:[]};
+ const cabinet={...newFurniture('builtin',room,'front'),x:0,z:room.length/2-65/2};
+ assert(issuesFor({version:2,room,items:[cabinet]}).some(i=>i.kind==='outside'));
+ const a={...cabinet,z:0},b={...newFurniture('bookcase',room,'neighbour'),x:0,z:a.depth/2+3+16};
+ assert(issuesFor({version:2,room,items:[a,b]}).some(i=>i.kind==='overlap'));
+});
+test('Storage recovery preserves the previous bytes before saving a valid draft',()=>{
+ const {restoreRoomSaving,roomStorageKey}=require('./room-storage.js');
+ const data=new Map([[roomStorageKey,'{broken'],['toro-room-v1','old version']]);
+ const storage={getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};
+ const design=upgradeDesign(fixture()),result=restoreRoomSaving(storage,design);
+ assert.equal(data.get(result.backupKey),'{broken');assert.deepEqual(parseDesign(JSON.parse(data.get(roomStorageKey))),design);
+ assert.equal(data.get('toro-room-v1'),'old version');
+ assert.equal(restoreRoomSaving(storage,design).backupKey,null);
+});
+test('Failed backup or failed main write never destroys the previous draft',()=>{
+ const {restoreRoomSaving,roomStorageKey}=require('./room-storage.js');
+ for(const failedWrite of ['backup','main']){
+  const data=new Map([[roomStorageKey,'{broken']]);
+  const storage={getItem:key=>data.get(key)??null,setItem:(key,value)=>{
+   if((key===roomStorageKey)===(failedWrite==='main'))throw Error('QuotaExceededError');data.set(key,value);
+  }};
+  assert.throws(()=>restoreRoomSaving(storage,upgradeDesign(fixture())));
+  assert.equal(data.get(roomStorageKey),'{broken');
+ }
+});
+test('Text and JSON inquiry include the same current collision warnings',()=>{
+ const {createInquiryPayload}=require('./toro-inquiry.js');
+ const d=upgradeDesign(fixture());d.items=[d.items[0],{...d.items[0],id:'overlap'}];
+ const issues=issuesFor(d),summary=describeDesign(d,issues);
+ assert(issues.length>0);for(const issue of issues)assert(summary.includes(issue.text));
+ const payload=createInquiryPayload(d,{summary},issues.map(i=>i.text));
+ assert.deepEqual(payload.warnings,issues.map(i=>i.text));assert.equal(payload.summary,summary);
+ const empty={...d,items:[],room:{...d.room,openings:[]}};
+ assert(describeDesign(empty).includes('Bez zjištěných kolizí.'));
 });
 console.log(`\n${tests} room-planner checks passed.`);

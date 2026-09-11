@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { DimensionField, FurnitureSteps, LayoutDiagram, MaterialPicker, furnitureSteps } from '@/components/furniture-fields';
 import { FurnitureIcon, NumberField } from '@/components/room-controls';
 import { layouts, materials } from '@/lib/configuration';
-import { attachToWall, canMount, furnitureLimits, wallNames, type Furniture, type Room, type Wall, type Issue } from '@/lib/room';
+import { attachToWall, canMount, frontProjection, furnitureLimits, wallNames, type Furniture, type Room, type Wall, type Issue } from '@/lib/room';
 
 export function FurnitureControls({ item, room, issues, onChange, onDuplicate, onDelete, onShowFrontChange, onSummary }: {
   item: Furniture; room: Room; issues: Issue[];
@@ -60,6 +60,7 @@ export function FurnitureControls({ item, room, issues, onChange, onDuplicate, o
           <DimensionField label="Šířka" value={item.width} min={item.type==='vanity'&&item.basins===2?120:item.type==='laundry'&&item.appliances==='side-by-side'?140:limits.width[0]} max={limits.width[1]} onChange={width => onChange({ width })}/>
           <DimensionField label={shelf ? 'Tloušťka' : item.type==='vanity'?'Výška s umyvadlem':'Výška'} value={item.height} min={limits.height[0]} max={limits.height[1]} onChange={height => onChange({ height })}/>
           <DimensionField label="Hloubka" value={item.depth} min={limits.depth[0]} max={limits.depth[1]} onChange={depth => onChange({ depth })}/>
+          {frontProjection(item)>0&&<p className="step-description">Hloubka korpusu. Včetně čel a kování: {Number((item.depth+frontProjection(item)).toFixed(2))} cm. Kontrola počítá s celým kusem.</p>}
           {canMount(item.type) && <DimensionField label="Výška nad podlahou" value={item.y} min={0} max={Math.max(0,room.height - item.height)} onChange={y => onChange({ y })}/>}
         </div>
         {item.type === 'builtin' && <Button className="rp-fit-button" variant="outline" onClick={() => onChange({ height: room.height - 2 })}><ArrowDownToLine size={15}/> Přizpůsobit výšce pokoje</Button>}

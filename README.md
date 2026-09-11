@@ -2,6 +2,10 @@
 
 Český prototyp pro návrh pokoje a nábytku ve 2D a 3D. Repozitář obsahuje hotovou samostatnou HTML ukázku, zdrojový projekt pro další vývoj a návrh jeho budoucí architektury.
 
+## Aktuální vývoj
+
+První etapa nové architektury přidává pět hlavních sekcí, zásuvky ve 2D/3D, automatické ukládání a rozšířený export. Spouští se ze složky `zdrojove-soubory/`. Rozsah a kompatibilitu popisuje [první etapa](docs/PRVNI-ETAPA.md). Samostatný soubor `TORO-otevrit.html` zatím obsahuje původní ukázku.
+
 ## Rychlé spuštění ukázky
 
 1. Stáhněte repozitář přes **Code → Download ZIP** a rozbalte jej.

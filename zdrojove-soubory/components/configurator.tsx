@@ -1,6 +1,5 @@
 'use client';
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
 import { ToroBrand } from './toro-brand';
 import { InquiryDialog } from './toro-inquiry';
 import type { RoomDesign } from '@/lib/room';
@@ -38,7 +37,9 @@ export default function Configurator(){
   return <div className="app-shell toro-standalone">
     <header className="site-header">
       <ToroBrand/>
-      <Link className="header-center" href="/"><ArrowLeft size={16}/> Zpět do plánovače pokoje</Link>
+      {/* Full navigation releases this independent WebGL editor. */}
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+      <a className="header-center" href="/"><ArrowLeft size={16}/> Zpět do plánovače pokoje</a>
       <Button className="help-button" variant="ghost" onClick={()=>setHelp(true)}><CircleHelp size={18}/><span>Jak na to</span></Button>
     </header>
     <main className="main-content">
@@ -82,7 +83,7 @@ export default function Configurator(){
       <div className="project-footer"><div className="footer-note"><span className="footer-icon"><SlidersHorizontal size={18}/></span><div><strong>Váš prostor. Vaše pravidla.</strong><span>Každý rozměr i detail máte ve svých rukou.</span></div></div><div className="toro-standalone-quote"><strong>Individuální nabídka</strong><span>Podle materiálu, kování a montáže</span></div><Button className="summary-button" onClick={openSummary}>Přehled a poptávka<span><ArrowRight size={18}/></span></Button></div>
       <div className="below-footer"><span>Navrženo vámi, do posledního centimetru.</span><button onClick={()=>setResetDialog(true)}><RotateCcw size={13}/> Začít znovu</button><span>Prototyp TORO · návrh k doladění s truhlářem</span></div>
     </main>
-    <InquiryDialog standalone key={captureRequest} open={summary} onOpenChange={setSummary} design={design} preview={preview}/>
+    <InquiryDialog standalone open={summary} onOpenChange={setSummary} design={design} preview={preview}/>
     <Dialog open={help} onOpenChange={setHelp}><DialogContent><DialogHeader><DialogTitle>Od nápadu k vaší skříni</DialogTitle><DialogDescription>Čtyři kroky, které zvládnete během pár minut.</DialogDescription></DialogHeader><ol className="help-steps">{steps.map((s,i)=><li key={s.name}><span>{i+1}</span><div><strong>{s.name}</strong><p>{['Nastavte šířku, výšku a hloubku posuvníkem nebo napište přesné číslo.','Zvolte povrch korpusu. Náhled se ihned přizpůsobí.','Klikněte na číslo sekce a vyberte její police, tyč nebo zásuvky.','Vyberte dvířka, jejich materiál a úchytky. Hotový přehled si stáhněte.'][i]}</p></div></li>)}</ol><p className="summary-disclaimer">Tažením myší otáčíte modelem, kolečkem měníte přiblížení. Uložený návrh zůstává pouze v tomto prohlížeči. Konfigurátor nepřijímá objednávky.</p></DialogContent></Dialog>
     <Dialog open={resetDialog} onOpenChange={setResetDialog}><DialogContent><DialogHeader><DialogTitle>Začít s novým návrhem?</DialogTitle><DialogDescription>Aktuální i uložený návrh v tomto prohlížeči se nahradí výchozí skříní.</DialogDescription></DialogHeader><div className="dialog-actions"><Button variant="outline" onClick={()=>setResetDialog(false)}>Pokračovat v návrhu</Button><Button onClick={()=>{setConfig(initialConfiguration);setSaved(false);setStep(0);setFront(false);setZoom(1);setReset(r=>r+1);try{localStorage.removeItem('forma-design-v1');}catch{}setResetDialog(false);}}>Začít znovu</Button></div></DialogContent></Dialog>
     {toast&&<div className="toast" role="status"><Check size={17}/>{toast}<button aria-label="Zavřít oznámení" onClick={()=>setToast('')}><X size={15}/></button></div>}
