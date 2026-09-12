@@ -18,6 +18,13 @@ export type Furniture = {
   basins?: 1 | 2; appliances?: 'stacked' | 'side-by-side'; hooks?: number;
   notes?:string;
 };
+/** Product parameters have no identity, room position or mounting height. */
+export type FurnitureConfiguration = Omit<Furniture, 'id' | 'x' | 'y' | 'z' | 'rotation' | 'existing'>;
+export function furnitureConfiguration(item:Furniture):FurnitureConfiguration {
+  const {id,x,y,z,rotation,existing,...configuration}=item;
+  void id;void x;void y;void z;void rotation;void existing;
+  return configuration;
+}
 export type IssueAcknowledgement={issueId:string;fingerprint:string;acknowledgedAt:string;note:string};
 export type RoomDesign = { version: 1 | 2 | 3 | 4; room: Room; items: Furniture[]; title?: string; technicalPoints?: TechnicalPoint[]; acknowledgements?:IssueAcknowledgement[] };
 export type Selection = { kind: 'furniture' | 'technical' | 'opening'; id: string } | null;
@@ -69,7 +76,7 @@ export const initialRoom: RoomDesign = {
 };
 export const clamp = (n:number,min:number,max:number) => Math.min(max,Math.max(min,n));
 /** Closed fronts/hardware beyond the carcass, in cm. Kept in sync with all model variants by geometry tests. */
-export function frontProjection(item:Furniture):number {
+export function frontProjection(item:FurnitureConfiguration):number {
   if(item.type==='wardrobe'||item.type==='builtin')return Math.max(
     item.doors==='sliding'?6.6:item.doors==='hinged'?5.35:0,
     item.sections.includes('drawers')?1.65:0,item.type==='builtin'?1.1:0);
@@ -100,17 +107,21 @@ export function placeItem(item:Furniture,room:Room,x=item.x,z=item.z,snap=false)
   if(room.outline){const shift=fitBoundsInRoom(room,boundsOf(placed));placed.x+=shift.x;placed.z+=shift.z;}
   return placed;
 }
-export function normalizeItem(item:Furniture,room:Room):Furniture {
+export function normalizeFurniture(item:FurnitureConfiguration):FurnitureConfiguration {
   const type=item.type, limits=furnitureLimits(type);
-  const next={...item,width:clamp(item.width,...limits.width),depth:clamp(item.depth,...limits.depth),height:clamp(item.height,...limits.height),y:0};
+  const next={...item,width:clamp(item.width,...limits.width),depth:clamp(item.depth,...limits.depth),height:clamp(item.height,...limits.height)};
   if(type==='vanity'&&item.basins===2)next.width=Math.max(120,next.width);
   if(type==='laundry'&&item.appliances==='side-by-side')next.width=Math.max(140,next.width);
-  next.y=canMount(type)?clamp(item.y,0,Math.max(0,room.height-next.height)):0;
   if(next.construction==='solid') {if(!['oak','walnut'].includes(next.material))next.material='oak';if(!['oak','walnut'].includes(next.front))next.front='oak';}
   const count=Math.max(1,Math.ceil(next.width/100),Math.min(next.sections.length,Math.floor(next.width/30)));
   next.sections=Array.from({length:count},(_,i)=>next.sections[i]||'shelves');
   if(['shelf','bench','panel','mirror','vanity','laundry','desk','bed','custom'].includes(type))next.sections=['shelves'];
   next.shelfCount=Math.round(clamp(next.shelfCount,1,type==='vanity'?3:8));
+  return next;
+}
+export function normalizeItem(item:Furniture,room:Room):Furniture {
+  const next={...item,...normalizeFurniture(furnitureConfiguration(item))};
+  next.y=canMount(item.type)?clamp(item.y,0,Math.max(0,room.height-next.height)):0;
   return placeItem(next,room);
 }
 /** Align neighbouring pieces along a shared back edge when dragging nearby. */
@@ -190,8 +201,12 @@ export function issuesFor(design:RoomDesign):Issue[]{
   return issues;
 }
 export function newFurniture(type:FurnitureType,room:Room,id:string):Furniture {
+  return normalizeItem({...newFurnitureConfiguration(type),id,x:0,z:0,y:defaultMountHeight(type),rotation:0,existing:false,...(type==='builtin'?{height:room.height-2}:{})},room);
+}
+export const defaultMountHeight=(type:FurnitureType)=>({shelf:145,panel:65,mirror:90,vanity:25,tv:20} as Partial<Record<FurnitureType,number>>)[type]||0;
+export function newFurnitureConfiguration(type:FurnitureType):FurnitureConfiguration {
   const def=catalog.find(c=>c.type===type)!;
-  return normalizeItem({id,type,name:def.name,width:def.width,height:type==='builtin'?room.height-2:def.height,depth:def.depth,x:0,z:0,y:({shelf:145,panel:65,mirror:90,vanity:25,tv:20} as Partial<Record<FurnitureType,number>>)[type]||0,rotation:0,material:'oak',front:'sand',doors:type==='builtin'?'sliding':['wardrobe','shoe','tv'].includes(type)?'hinged':'open',handles:'black',sections:type==='wardrobe'?['hanging','shelves']:type==='builtin'?['hanging','shelves']:type==='dresser'?['drawers','drawers']:['shelves'],shelfCount:type==='shoe'?3:type==='vanity'?2:4,construction:'laminate',existing:false,basins:1,appliances:'stacked',hooks:4},room);
+  return normalizeFurniture({type,name:def.name,width:def.width,height:def.height,depth:def.depth,material:'oak',front:'sand',doors:type==='builtin'?'sliding':['wardrobe','shoe','tv'].includes(type)?'hinged':'open',handles:'black',sections:type==='wardrobe'||type==='builtin'?['hanging','shelves']:type==='dresser'?['drawers','drawers']:['shelves'],shelfCount:type==='shoe'?3:type==='vanity'?2:4,construction:'laminate',basins:1,appliances:'stacked',hooks:4});
 }
 export function findFreePosition(item:Furniture,design:RoomDesign):Furniture|null {
   // Only physical constraints can prevent insertion; incomplete utility data is advisory.
@@ -221,6 +236,14 @@ export function asWardrobe(item:Furniture):Configuration {
 const material=z.enum(['oak','walnut','white','sand','graphite']);
 const openingSchema=z.object({id:z.string().min(1).max(80),type:z.enum(['door','window']),wall:z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/),offset:z.number().finite().min(-1000).max(1000),width:z.number().finite().min(40).max(240),height:z.number().finite().min(40).max(390),sill:z.number().finite().min(0).max(360)});
 const itemSchema=z.object({id:z.string().min(1).max(80),type:z.enum(['wardrobe','builtin','shoe','dresser','bookcase','shelf','bench','panel','mirror','vanity','laundry','desk','tv','bed','custom']),name:z.string().min(1).max(50),width:z.number().finite().min(20).max(500),height:z.number().finite().min(2).max(400),depth:z.number().finite().min(3).max(400),x:z.number().finite().min(-1000).max(1000),z:z.number().finite().min(-1000).max(1000),y:z.number().finite().min(0).max(400),rotation:z.union([z.literal(0),z.literal(90),z.literal(180),z.literal(270)]),material,front:material,doors:z.enum(['hinged','open','sliding']),handles:z.enum(['black','brass']),sections:z.array(z.enum(['hanging','shelves','drawers'])).min(1).max(16),shelfCount:z.number().int().min(1).max(8),construction:z.enum(['laminate','solid']).optional(),existing:z.boolean().optional(),basins:z.union([z.literal(1),z.literal(2),z.literal(3)]).optional(),appliances:z.enum(['stacked','side-by-side']).optional(),hooks:z.number().int().min(1).max(8).optional(),notes:z.string().max(2000).optional()});
+export const furnitureConfigurationSchema=itemSchema.omit({id:true,x:true,y:true,z:true,rotation:true,existing:true}).extend({basins:z.union([z.literal(1),z.literal(2)]).optional()}).strict().superRefine((item,ctx)=>{
+  const limits=furnitureLimits(item.type);
+  if((['width','height','depth'] as const).some(k=>item[k]<limits[k][0]||item[k]>limits[k][1]) ||
+    (item.type==='vanity'&&(item.shelfCount>3||(item.basins===2&&item.width<120))) ||
+    (item.type==='laundry'&&item.appliances==='side-by-side'&&item.width<140) ||
+    (['wardrobe','builtin','shoe','dresser','bookcase','tv'].includes(item.type)&&item.width/item.sections.length<25))
+    ctx.addIssue({code:'custom',message:'Neplatné parametry kusu.'});
+});
 const legacyTechnicalPointSchema=z.object({id:z.string().min(1).max(80),type:z.literal('socket'),name:z.string().min(1).max(80),wall:z.enum(['north','east','south','west']),offset:z.number().finite().min(0).max(1000),elevation:z.number().finite().min(0).max(400),width:z.number().finite().min(6).max(30),height:z.number().finite().min(6).max(30)}).strict();
 export const roomDesignSchema=z.object({version:z.union([z.literal(1),z.literal(2),z.literal(3),z.literal(4)]),acknowledgements:z.array(z.object({issueId:z.string().min(1).max(250),fingerprint:z.string().regex(/^[a-f0-9]{16}$/),acknowledgedAt:z.string().datetime(),note:z.string().max(1000)}).strict()).max(300).optional(),technicalPoints:z.array(z.union([technicalPointSchema,legacyTechnicalPointSchema])).max(100).optional(),title:z.string().min(1).max(80).optional(),room:z.object({width:z.number().finite().min(120).max(1000),length:z.number().finite().min(120).max(1000),height:z.number().finite().min(220).max(400),wallColor:z.string().regex(/^#[0-9a-fA-F]{6}$/),floor:z.enum(['oak','light','dark']),openings:z.array(openingSchema).max(40),outline:z.array(z.object({id:z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/),x:z.number().finite().min(0).max(1000),z:z.number().finite().min(0).max(1000)}).strict()).min(4).max(32).optional()}),items:z.array(itemSchema).max(30)}).superRefine((d,ctx)=>{
   if(d.version===1 && d.technicalPoints?.length)ctx.addIssue({code:'custom',message:'Technické prvky vyžadují novější formát návrhu.'});

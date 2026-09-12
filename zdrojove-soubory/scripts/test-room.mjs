@@ -9,7 +9,7 @@ import ts from 'typescript';
 const output=path.resolve('.sites-runtime/room-tests');
 fs.mkdirSync(output,{recursive:true});
 fs.writeFileSync(path.join(output,'package.json'),JSON.stringify({type:'commonjs'}));
-for(const name of ['room-geometry','issue-acknowledgements','scene-label','room-previews','technical','configuration','wardrobe-model','room','room-storage','special-furniture-model','room-model','toro-templates','toro-inquiry','toro-prototype','technical-model','planner-history']){
+for(const name of ['workspace','furniture-preview','room-geometry','issue-acknowledgements','scene-label','room-previews','technical','configuration','wardrobe-model','room','room-storage','special-furniture-model','room-model','toro-templates','toro-inquiry','toro-prototype','technical-model','planner-history']){
   const source=fs.readFileSync(`lib/${name}.ts`,'utf8');
   const result=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}});
   fs.writeFileSync(path.join(output,`${name}.js`),result.outputText);

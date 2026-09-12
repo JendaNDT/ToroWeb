@@ -1,6 +1,6 @@
 # TORO – architektura plánovače interiéru
 
-> Dosavadní místní prototyp a rozsah jeho ověření: [dokončení prototypu](docs/DOKONCENI-PROTOTYPU.md). Tento plán nově zahrnuje schválený konfigurátor jednoho kusu jako hlavní vstup do první verze; tato změna zatím není implementovaná. Cenotvorba a doručování poptávek zůstávají podle zadavatele nenapojené.
+> Dosavadní místní prototyp a rozsah jeho ověření: [dokončení prototypu](docs/DOKONCENI-PROTOTYPU.md). Tento plán nově zahrnuje schválený konfigurátor jednoho kusu jako hlavní vstup do první verze; tato změna je nyní implementovaná v místních zdrojích a předváděcím balíčku. [Plán a ověření](docs/SPOLECNY-KONFIGURATOR.md) zachycují skutečný rozsah první verze. Cenotvorba a doručování poptávek zůstávají podle zadavatele nenapojené.
 
 **Stav:** pracovní architektura se schváleným doplněním první verze
 

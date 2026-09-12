@@ -5,7 +5,7 @@ import "./toro-workspace.css";
 
 export const metadata: Metadata = {
   title: "TORO — Plánovač interiéru",
-  description: "Navrhněte si pokoj ve 3D. Přizpůsobte místnost, rozmístěte skříně, vestavěný nábytek, botníky a police a dolaďte každý kus na míru.",
+  description: "Navrhněte si jeden kus nábytku nebo celý pokoj ve 3D. Dolaďte všech 15 druhů, rozměry, materiály a vybavení a připravte podklady pro TORO.",
   other: {
     "codex-preview": "development",
   },

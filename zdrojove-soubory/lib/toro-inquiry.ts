@@ -2,17 +2,18 @@ import { describeTechnicalPlacement, technicalCatalog, accuracyNames, statusName
 import { roomWalls, roomWallName, outlineArea, roomOutline } from './room-geometry';
 import { currentAcknowledgement } from './issue-acknowledgements';
 import { prototypeBusiness } from './toro-prototype';
+import { singleDesign, type SingleDesign } from './workspace';
 import { materials } from './configuration';
-import { frontProjection, issuesFor, type Furniture, type RoomDesign, type Issue } from './room';
+import { frontProjection, issuesFor, type FurnitureConfiguration, type Furniture, type RoomDesign, type Issue } from './room';
 
-function describeItem(i:Furniture,n:number):string[] {
+function describeItem(i:FurnitureConfiguration & Partial<Furniture>,n:number,standalone=false):string[] {
   const name=(id:string)=>materials.find(m=>m.id===id)?.name||id;
   const cabinet=['wardrobe','builtin','shoe','dresser','bookcase','tv'].includes(i.type);
   return [
     `${n+1}. ${i.name}${i.existing?' — STÁVAJÍCÍ NÁBYTEK, neobjednávat výrobu':''}`,
-    `Š × V × H: ${i.width} × ${i.height} × ${i.depth} cm; nad podlahou ${i.y} cm`,
+    `Š × V × H: ${i.width} × ${i.height} × ${i.depth} cm${standalone?'':`; nad podlahou ${i.y} cm`}`,
     ...(frontProjection(i)>0?[`Hloubka korpusu ${i.depth} cm; včetně čel a kování ${Number((i.depth+frontProjection(i)).toFixed(2))} cm.`]:[]),
-    `Poloha X/Z od středu pokoje: ${i.x}/${i.z} cm; otočení ${i.rotation}°`,
+    ...(!standalone?[`Poloha X/Z od středu pokoje: ${i.x}/${i.z} cm; otočení ${i.rotation}°`]:[]),
     `Provedení: ${i.construction==='solid'?'olejovaný masiv':'lamino'}; povrch: ${name(i.material)}`,
     ...(cabinet||i.type==='vanity'||i.type==='laundry'?[`Čela: ${name(i.front)}; kování: ${i.handles==='black'?'černé':'mosazný odstín'}`]:[]),
     ...(cabinet?[
@@ -36,7 +37,7 @@ export function describeDesign(design:RoomDesign,issues:Issue[]=issuesFor(design
     ...roomWalls(design.room).map((w,i)=>`S${i+1} · ${w.name}: ${Number(w.length.toFixed(1))} cm`),
     '',
     ...design.room.openings.map(o=>`${o.type==='window'?'Okno':'Dveře'}: ${roomWallName(design.room,o.wall)}, ${o.width} × ${o.height} cm, odsazení ${o.offset} cm, parapet ${o.sill} cm`),
-    '',...design.items.flatMap(describeItem),
+    '',...design.items.flatMap((item,n)=>describeItem(item,n)),
     'TECHNICKÉ PRVKY',
     ...(design.technicalPoints??[]).flatMap(p=>[
       `${p.label} · ${p.name} (${technicalCatalog[p.type].name}): ${describeTechnicalPlacement(p,design.room)}; ${p.width} × ${p.height} × ${p.depth} cm`,
@@ -54,6 +55,12 @@ export function describeDesign(design:RoomDesign,issues:Issue[]=issuesFor(design
   ].join('\n');
 }
 
+export function describeSingle(item:FurnitureConfiguration):string {
+  return ['TORO INTERIORS / Samostatný kus',...describeItem(item,0,true),
+    'Materiály, konstrukci a montáž upřesní TORO. Rozměry jsou v centimetrech.',
+    'PROTOTYP — cena se nepočítá, příjemce není nastaven a nic se neodesílá.'].join('\n');
+}
+
 export function downloadText(text:string,name:string,type='text/plain;charset=utf-8'){
   const url=URL.createObjectURL(new Blob([text],{type}));
   const a=document.createElement('a');a.href=url;a.download=name;a.hidden=true;
@@ -66,13 +73,14 @@ export type InquiryDetails = {
   photos:{name:string;data:string}[];service:boolean;kind:string;preview:string;planPreview?:string;summary:string;
 };
 /** One payload builder for download and round-trip validation. */
-export function createInquiryPayload(design:RoomDesign,details:InquiryDetails,warnings:string[]) {
+export function createInquiryPayload(design:RoomDesign|SingleDesign,details:InquiryDetails,warnings:string[]) {
+  const single='format' in design;
   return {
     format:'toro-inquiry',version:1,createdAt:new Date().toISOString(),business:prototypeBusiness,
     kind:details.service?details.kind:'Nábytek na míru',
     contact:{name:details.name,email:details.email,phone:details.phone,city:details.city},
     assembly:details.assembly,timing:details.timing,notes:details.notes,photos:details.photos,
-    design:details.service?null:design,preview:details.service?null:details.preview,previews:details.service?null:{perspective:details.preview,plan:details.planPreview??''},acknowledgements:details.service?[]:issuesFor(design).flatMap(i=>{const a=currentAcknowledgement(design,i);return a?[{...a,text:i.text,severity:i.severity}]:[]}),
+    design:details.service?null:single?singleDesign(design.item):design,preview:details.service?null:details.preview,previews:details.service?null:{perspective:details.preview,...(!single?{plan:details.planPreview??''}:{})},acknowledgements:details.service||single?[]:issuesFor(design).flatMap(i=>{const a=currentAcknowledgement(design,i);return a?[{...a,text:i.text,severity:i.severity}]:[]}),
     summary:details.service?details.notes:details.summary,warnings:details.service?[]:warnings,
   };
 }

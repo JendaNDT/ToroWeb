@@ -1,5 +1,2 @@
-import RoomPlanner from '@/components/room-planner';
-
-export default function Home() {
-  return <RoomPlanner />;
-}
+import ToroWorkspace from '@/components/toro-workspace';
+export default function Home(){return <ToroWorkspace/>;}

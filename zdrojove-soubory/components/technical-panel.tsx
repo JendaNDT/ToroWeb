@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { ArrowLeft, ChevronRight, PlugZap, Droplets, CircleDot, Flame, Heater, Wind, Network, PanelsTopLeft, Plus, Trash2, Copy, LockKeyhole, UnlockKeyhole, Link2 } from 'lucide-react';
+import { DetailSection } from './detail-section';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
@@ -22,7 +23,6 @@ function TechnicalProperties({design,point,onChange,onDelete,onDuplicate,onBack}
     <Button variant="ghost" onClick={onBack}><ArrowLeft/> Všechny technické prvky</Button>
     <span className="tw-eyebrow">{technicalCategories.find(c=>c.id===def.category)?.name} / {point.label}</span>
     <h2><TechnicalIcon category={def.category}/>{def.name}</h2>
-    <label className="toro-field-label">Název prvku<Input value={point.name} maxLength={80} onChange={e=>onChange({name:e.target.value||def.name})}/></label>
     <div className="tw-tech-pair"><label className="toro-field-label">Provedení<NativeSelect value={point.status} onChange={e=>onChange({status:e.target.value as TechnicalPoint['status']})}>{Object.entries(statusNames).map(([v,n])=><option key={v} value={v}>{n}</option>)}</NativeSelect></label>
     <label className="toro-field-label">Přesnost údajů<NativeSelect value={point.accuracy} onChange={e=>onChange({accuracy:e.target.value as TechnicalPoint['accuracy']})}>{Object.entries(accuracyNames).map(([v,n])=><option key={v} value={v}>{n}</option>)}</NativeSelect></label></div>
     <Button variant="outline" aria-pressed={point.locked} onClick={()=>onChange({locked:!point.locked})}>{point.locked?<LockKeyhole/>:<UnlockKeyhole/>}{point.locked?'Odemknout polohu':'Zamknout polohu'}</Button>
@@ -39,21 +39,22 @@ function TechnicalProperties({design,point,onChange,onDelete,onDuplicate,onBack}
         <label className="toro-field-label">Otočení<NativeSelect value={p.rotation} onChange={e=>onChange({placement:{...p,rotation:Number(e.target.value) as 0|90|180|270}})}>{[0,90,180,270].map(n=><option value={n} key={n}>{n}°</option>)}</NativeSelect></label>
       </>}
       <p className="tw-note">Měříme ke středu. {p.surface==='floor'||p.surface==='ceiling'?'Šířka a délka leží v ploše; vyčnívání směřuje do pokoje.':'Hloubka určuje skutečný prostor, který prvek zabírá.'} Změna pokoje vaše měření neposune.</p>
-      <details className="tw-details" open><summary>{shapeLabel}</summary>
+      <DetailSection title={shapeLabel} summary={`${point.width} × ${point.height} × ${point.depth} cm`}>
         <NumberField label="Šířka prvku" value={point.width} step={.1} min={.2} max={1000} onChange={width=>onChange({width})}/>
         <NumberField label={p.surface==='floor'||p.surface==='ceiling'?'Délka v ploše':'Výška prvku'} value={point.height} step={.1} min={.2} max={1000} onChange={height=>onChange({height})}/>
         <NumberField label={p.surface==='space'?'Hloubka prvku':'Vyčnívání do pokoje'} value={point.depth} step={.1} min={def.shape==='volume'||def.shape==='pipe'?.2:0} max={1000} onChange={depth=>onChange({depth})}/>
         {def.shape==='pipe'&&<p className="tw-note">Zadejte obal přímého úseku potrubí. Další úsek vytvoříte duplikováním.</p>}
-      </details>
+      </DetailSection>
     </fieldset>
-    <details className="tw-details"><summary>Přístup a přiřazení</summary>
+    <DetailSection title="Přístup a přiřazení" summary={`${point.accessDepth?`Přístup ${point.accessDepth} cm`:'Přístup nezadaný'} · ${point.linkedItemId?(design.items.find(i=>i.id===point.linkedItemId)?.name??'Odebraný kus'):'bez přiřazení'}`}>
       <label className="toro-field-label">Prostor před prvkem<NativeSelect value={point.accessDepth?'known':'unknown'} onChange={e=>onChange({accessDepth:e.target.value==='known'?30:undefined})}><option value="unknown">Není zadaný</option><option value="known">Zadat rozměr</option></NativeSelect></label>
       {point.accessDepth&&<NumberField label="Hloubka prostoru pro přístup" value={point.accessDepth} step={.1} min={1} max={500} onChange={accessDepth=>onChange({accessDepth})}/>}
       <p className="tw-note">Zadejte požadovaný rozměr podle skutečného prvku. Výchozí hodnota není normový odstup.</p>
       <label className="toro-field-label"><Link2 size={14}/> Přiřazený nábytek<NativeSelect value={point.linkedItemId??''} onChange={e=>onChange({linkedItemId:e.target.value||undefined})}><option value="">Bez přiřazení</option>{point.linkedItemId&&!design.items.some(i=>i.id===point.linkedItemId)&&<option value={point.linkedItemId}>Původní kus byl odebrán</option>}{design.items.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</NativeSelect></label>
       <p className="tw-note">Přiřazení zaznamená účel přípojky. Prostor pro rozvody, výřezy a přístup se posuzuje samostatně.</p>
-    </details>
-    <label className="toro-field-label">Poznámka k prvku<Textarea value={point.notes} maxLength={1000} rows={3} onChange={e=>onChange({notes:e.target.value})}/></label>
+    </DetailSection>
+    <DetailSection title="Označení a poznámka" summary={`${point.name}${point.notes?' · poznámka vyplněna':''}`}><label className="toro-field-label">Název prvku<Input value={point.name} maxLength={80} onChange={e=>onChange({name:e.target.value||def.name})}/></label>
+    <label className="toro-field-label">Poznámka k prvku<Textarea value={point.notes} maxLength={1000} rows={3} onChange={e=>onChange({notes:e.target.value})}/></label></DetailSection>
     {point.groupId&&<p className="tw-note">Součást skupiny přípojek · {(design.technicalPoints??[]).filter(t=>t.groupId===point.groupId).map(t=>t.label).join(', ')}</p>}
     <div className="tw-tech-pair"><Button variant="outline" onClick={onDuplicate} disabled={(design.technicalPoints?.length??0)>=100}><Copy/> Duplikovat</Button><Button variant="outline" onClick={onDelete} disabled={point.locked}><Trash2/> Odebrat</Button></div>
   </div>;
@@ -64,7 +65,7 @@ export function TechnicalPanel(props:Props) {
   const points=design.technicalPoints??[],full=points.length>=100;
   if(selected)return <TechnicalProperties key={selected.id} design={design} point={selected} onChange={onChange} onDelete={onDelete} onDuplicate={onDuplicate} onBack={()=>onSelect(null)}/>;
   return <div className="tw-panel-content">
-    <span className="tw-eyebrow">TECHNICKÉ PRVKY</span><h2>Přípojky a pevné prvky</h2><p>Zaznamenejte, s čím má nábytek počítat.</p>
+    <h2>Přípojky a pevné prvky</h2><p>Zaznamenejte, s čím má nábytek počítat.</p>
     {category?<>
       <Button variant="ghost" onClick={()=>setCategory(null)}><ArrowLeft/> Všechny kategorie</Button>
       <label className="toro-field-label">{technicalCategories.find(c=>c.id===category)?.name}<NativeSelect value={type} onChange={e=>setType(e.target.value as TechnicalType)}>{technicalTypes.filter(t=>technicalCatalog[t].category===category).map(t=><option key={t} value={t}>{technicalCatalog[t].name}</option>)}</NativeSelect></label>

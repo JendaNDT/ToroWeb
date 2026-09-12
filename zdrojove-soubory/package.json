@@ -13,7 +13,7 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "test:room": "node scripts/test-room.mjs",
-    "test:audit": "npm run test:room && node scripts/test-technical.mjs && node scripts/test-architecture.mjs && node scripts/audit-room.mjs",
+    "test:audit": "npm run test:room && node scripts/test-technical.mjs && node scripts/test-architecture.mjs && node scripts/test-workspace.mjs && node scripts/audit-room.mjs",
     "typecheck": "tsc --noEmit",
     "check": "npm run test:audit && npm run lint && npm run typecheck && npm run build",
     "package:demo": "npm run build && node scripts/build-offline.mjs"

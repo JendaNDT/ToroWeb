@@ -1,5 +1,7 @@
 # Dokončení místního prototypu TORO
 
+> Historická zpráva předchozí etapy z 11. 9. 2026. Navazuje na ni [společný konfigurátor jednoho kusu a pokoje](SPOLECNY-KONFIGURATOR-OVERENI.md); jeho aktuální balíček už má ověřený běh přes `file://` s vypnutou sítí.
+
 Stav k 11. 9. 2026: schválená etapa místních funkcí je implementovaná v pracovní kopii. Navazuje na technické sítě a původní architekturu. Nejde o potvrzení publikace na GitHubu nebo nasazení na in-toro.com.
 
 Zadavatel výslovně určil, že první verze slouží k předvedení kamarádovi. Cenotvorba, příjemce a způsob doručování poptávek zůstávají nenapojené. Ukázkové kontakty a zadání jsou označené; skutečné hodnoty doplní TORO později. Aplikace nic sama neodesílá.

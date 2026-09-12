@@ -33,16 +33,18 @@ export default function RoomScene(props:Props){
   useEffect(()=>{latest.current=props;});
   useEffect(()=>{cancelDrag.current?.();},[props.design]);
   useEffect(()=>{
-    if(!props.captureRequest||!engine.current)return;
-    const e=engine.current;
+    if(!props.captureRequest)return;
     latest.current.onCapturePlan?.(planDataUrl(latest.current.design));
+    const e=engine.current;if(!e||error){latest.current.onCapture?.('');return;}
     try{latest.current.onCapture?.(captureRoomPerspective(e.renderer,latest.current.design,e.texture));}catch{latest.current.onCapture?.('');}finally{e.draw();}
-  },[props.captureRequest]);
+  },[props.captureRequest,textureVersion,error]);
   useEffect(()=>{
     const container=host.current;if(!container)return;
     let renderer:THREE.WebGLRenderer;
     try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});}
-    catch{queueMicrotask(()=>setError('3D vyžaduje hardwarovou akceleraci prohlížeče. Nábytek můžete dál upravovat v seznamu.'));return;}
+    catch{queueMicrotask(()=>setError('3D vyžaduje hardwarovou akceleraci prohlížeče. Zobrazuje se půdorys; nábytek můžete dál upravovat v seznamu.'));return;}
+    const onContextLost=(event:Event)=>{event.preventDefault();setError('3D spojení se přerušilo. Pokračujte s půdorysem a seznamem kusů.');};
+    renderer.domElement.addEventListener('webglcontextlost',onContextLost);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
     renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.22;
     renderer.domElement.setAttribute('aria-label','Plán pokoje. Nábytek i technické prvky přemístíte tažením.');container.appendChild(renderer.domElement);
@@ -176,7 +178,7 @@ export default function RoomScene(props:Props){
     window.addEventListener('blur',cancel);window.addEventListener('keydown',escape,true);
     let disposed=false;
     const texture=new THREE.TextureLoader().load('/textures/oak.png',t=>{if(disposed){t.dispose();return;}t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());engine.current!.texture=t;setTextureVersion(v=>v+1);},undefined,()=>{if(!disposed)setTextureVersion(v=>v+1);});
-    return()=>{cancelDrag.current=null;disposed=true;resize.disconnect();controls.dispose();renderer.domElement.removeEventListener('pointerdown',down,true);renderer.domElement.removeEventListener('pointermove',move,true);renderer.domElement.removeEventListener('pointerup',end,true);renderer.domElement.removeEventListener('pointercancel',end,true);renderer.domElement.removeEventListener('lostpointercapture',cancel);window.removeEventListener('blur',cancel);window.removeEventListener('keydown',escape,true);clear(objects);clear(markers);clear(technical);const shell=engine.current?.shell;if(shell){disposeGroup(shell.group);shell.floorTexture?.dispose();}texture.dispose();ground.geometry.dispose();ground.material.dispose();sun.shadow.dispose();renderer.dispose();renderer.domElement.remove();engine.current=null;};
+    return()=>{cancelDrag.current=null;disposed=true;resize.disconnect();controls.dispose();renderer.domElement.removeEventListener('pointerdown',down,true);renderer.domElement.removeEventListener('pointermove',move,true);renderer.domElement.removeEventListener('pointerup',end,true);renderer.domElement.removeEventListener('pointercancel',end,true);renderer.domElement.removeEventListener('lostpointercapture',cancel);window.removeEventListener('blur',cancel);window.removeEventListener('keydown',escape,true);clear(objects);clear(markers);clear(technical);const shell=engine.current?.shell;if(shell){disposeGroup(shell.group);shell.floorTexture?.dispose();}texture.dispose();ground.geometry.dispose();ground.material.dispose();sun.shadow.dispose();renderer.domElement.removeEventListener('webglcontextlost',onContextLost);renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();engine.current=null;};
   },[]);
   useEffect(()=>{
     const e=engine.current;if(!e)return;
@@ -246,5 +248,5 @@ export default function RoomScene(props:Props){
     const offset=({ArrowLeft:[-delta,0],ArrowRight:[delta,0],ArrowUp:[0,-delta],ArrowDown:[0,delta]} as Record<string,number[]>)[event.key];
     if(offset){event.preventDefault();if(item){const next=placeItem(item,props.design.room,item.x+offset[0],item.z+offset[1]);props.onMove(item.id,next.x,next.z);}else if(point&&!point.locked){const pos=technicalPosition(point,props.design.room),next=moveTechnicalPoint(point,props.design.room,pos.x+offset[0],pos.z+offset[1]);props.onMoveTechnical?.(point.id,next.placement);}}
   }
-  return <div className="rp-scene" ref={host} tabIndex={0} onKeyDown={key} aria-label="Interaktivní pokoj; táhněte nábytek nebo technický prvek. Šipky posouvají vybraný prvek, Shift zpřesní krok na 1 cm, R otáčí, Escape zruší tažení.">{error&&<div className="rp-scene-error">{error}</div>}</div>;
+  return <div className="rp-scene" ref={host} tabIndex={0} onKeyDown={key} aria-label="Interaktivní pokoj; táhněte nábytek nebo technický prvek. Šipky posouvají vybraný prvek, Shift zpřesní krok na 1 cm, R otáčí, Escape zruší tažení.">{error&&<div className="toro-room-fallback"><img src={planDataUrl(props.design)} alt="Půdorys pokoje bez 3D akcelerace"/><p role="status">{error}</p></div>}</div>;
 }

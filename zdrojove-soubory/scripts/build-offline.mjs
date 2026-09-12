@@ -11,7 +11,9 @@ const require = createRequire(path.join(root, 'package.json'));
 const { build } = require('esbuild');
 const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
 const date = new Date().toLocaleDateString('en-CA', {timeZone:'Europe/Prague'});
-const out = path.join(root, 'outputs', 'TORO-prototyp');
+const demoName=process.env.TORO_DEMO_NAME||'TORO-prototyp';
+if(!/^[A-Za-z0-9-]+$/.test(demoName))throw new Error('Invalid demo name');
+const out = path.join(root, 'outputs', demoName);
 await fs.mkdir(out, { recursive: true });
 const assets = {};
 async function asset(url) {
@@ -29,13 +31,8 @@ const result = await build({
   stdin: {
     contents: `import React from 'react';
       import { createRoot } from 'react-dom/client';
-      import RoomPlanner from './components/room-planner';
-      import Configurator from './components/configurator';
-      // Full navigation preserves the application's pagehide autosave lifecycle.
-      window.addEventListener('hashchange', () => window.location.reload());
-      createRoot(document.getElementById('root')).render(
-        window.location.hash === '#skrin' ? <Configurator/> : <RoomPlanner/>
-      );`,
+      import ToroWorkspace from './components/toro-workspace';
+      createRoot(document.getElementById('root')).render(<ToroWorkspace/>);`,
     loader: 'tsx', resolveDir: root, sourcefile: 'toro-offline-entry.tsx',
   },
   bundle: true, minify: true, write: false, metafile: true,
@@ -70,7 +67,7 @@ const cssFiles = (await fs.readdir(cssDir)).filter(f => f.endsWith('.css')).sort
   if (b.startsWith('index.')) return 1;
   return a.localeCompare(b);
 });
-if (!cssFiles.some(f => f.startsWith('index.')) || !cssFiles.some(f => f.startsWith('room-planner.'))) throw new Error('Fresh production CSS is missing');
+if (!cssFiles.some(f => f.startsWith('index.')) || !cssFiles.some(f => /room-planner|toro-workspace/.test(f))) throw new Error('Fresh production CSS is missing');
 let css = (await Promise.all(cssFiles.map(f => fs.readFile(path.join(cssDir, f), 'utf8')))).join('\n');
 for (const url of new Set([...css.matchAll(/url\(["']?([^)'"\s]+)["']?\)/g)].map(m => m[1]))) {
   if (url.startsWith('data:')) continue;
@@ -134,6 +131,8 @@ SPUŠTĚNÍ
    Pro používání není potřeba připojení k internetu.
 
 RYCHLÁ PROHLÍDKA
+Začněte v záložce Jeden kus nábytku. Vyberte libovolný z 15 typů,
+upravte jej a připravte poptávku nebo jej vložte do pokoje.
 Pro předvedení členité místnosti zvolte „Vybrat sestavu“ → „Ložnice do L“.
 Obsahuje postel, skříň, atypický kus a dvě okna na stejné stěně.
 Pro předvedení sítí zvolte „Vybrat sestavu“ → „Koupelna v dubu“.
@@ -151,7 +150,9 @@ Obsahuje umyvadlo, prádelní sestavu, vodu, odpad, zásuvku a topný žebřík.
   údajů vyžaduje nové potvrzení.
 - Poptávka: stáhněte souhrn, půdorys i celkový 3D pohled v jednom souboru.
   Pro zkoušku lze tlačítkem doplnit zřetelně ukázkový kontakt.
-- Odkaz dole otevře samostatný konfigurátor jedné skříně.
+- Záložky Jeden kus nábytku a Celý pokoj zachovají oba rozpracované návrhy.
+- Vložit do pokoje zachová parametry. Upravit otevře konkrétní kus z pokoje.
+- Poptávka jednoho kusu nevyžaduje místnost. Oba druhy JSON lze znovu načíst.
 
 OVLÁDÁNÍ MYŠÍ
 - Nábytek vyberte kliknutím a přesuňte tažením.
@@ -162,7 +163,10 @@ OVLÁDÁNÍ MYŠÍ
 - Escape zruší probíhající tažení. Zpět/Vpřed vrací změny.
 
 ULOŽENÍ A SDÍLENÍ NÁVRHU
-Tlačítko „Stáhnout návrh“ uloží pokoj do souboru TORO-navrh.json.
+Nabídka „Návrh“ obsahuje uložení, načtení, exporty a zálohy.
+„Stáhnout kus“ uloží samostatný kus do TORO-kus.json.
+„Stáhnout pokoj“ uloží pokoj do TORO-navrh.json.
+„Záloha prostředí“ uloží oba návrhy i rozpracovanou editaci společně.
 Přes „Načíst návrh“ jej lze znovu otevřít, také na jiném počítači.
 Pro předání svého pokoje pošlete spolu s tímto ZIPem i stažený JSON.
 Automatické ukládání je pouze v daném prohlížeči. Dostupnost u místních
@@ -183,9 +187,9 @@ Otisk sestavení: ${sourceHash}
 Datum zabalení: ${date}
 Licence vložených knihoven a písem: LICENCE-KNIHOVEN.txt
 `);
-await fs.writeFile(path.join(out, 'VERZE.txt'), `TORO Interiors — přenosná ukázka\nDatum zabalení: ${date}\nZdroj: https://github.com/JendaNDT/ToroWeb\nVýchozí commit: ${commit}\nZdroj: aktuální pracovní kopie včetně místních změn.\nOtisk sestavení SHA-256: ${sourceHash}\nTechnické prvky: 28 typů; nábytek: 15 druhů; formát návrhu 4; import verzí 1, 2 a 3.\nPravoúhlé půdorysy, více otvorů, potvrzení upozornění, půdorys a 3D v poptávce.\nCeny a doručování poptávek: nenapojeno, zástupné údaje.\nBez serveru, instalace a závislosti na síti.\n\nKnihovny v JS balíčku / CSS:\n${dependencyVersions.join('\n')}\n`);
-await fs.writeFile(path.join(root, 'outputs/toro-demo-metafile.json'), JSON.stringify(result.metafile));
-const zipPath = path.join(root, 'outputs', `TORO-prototyp-${date}.zip`);
+await fs.writeFile(path.join(out, 'VERZE.txt'), `TORO Interiors — přenosná ukázka\nBalíček: ${demoName}\nDatum zabalení: ${date}\nZdroj: https://github.com/JendaNDT/ToroWeb\nVýchozí commit: ${commit}\nZdroj: aktuální pracovní kopie včetně místních změn.\nOtisk sestavení SHA-256: ${sourceHash}\nJeden kus nábytku a Celý pokoj; 15 druhů ve společném konfigurátoru.\nProstředí toro-workspace v1; samostatný kus toro-furniture v1; pokoj v4.\nImport pokojů v1–4, původní skříně a poptávkových souborů.\nTechnické prvky: 28 typů.\nPravoúhlé půdorysy, více otvorů, potvrzení upozornění, půdorys a 3D v poptávce.\nCeny a doručování poptávek: nenapojeno, zástupné údaje.\nBez serveru, instalace a závislosti na síti.\n\nKnihovny v JS balíčku / CSS:\n${dependencyVersions.join('\n')}\n`);
+await fs.writeFile(path.join(out, 'metafile.json'), JSON.stringify(result.metafile));
+const zipPath = path.join(root, 'outputs', `${demoName}-${date}.zip`);
 execFileSync('python3', ['-c', `
 import pathlib, sys, zipfile
 folder=pathlib.Path(sys.argv[1])

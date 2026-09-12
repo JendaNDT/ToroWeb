@@ -23,8 +23,8 @@ export function RoomShapePanel({room,onChange}:{room:Room;onChange:(patch:Partia
     try{const candidate=addRoomRecess(room,wall.id,offset,width,depth,outward,()=>crypto.randomUUID());onChange({width:candidate.width,length:candidate.length,outline:candidate.outline});setError('');}
     catch(e){setError(e instanceof Error?e.message:'Výklenek nelze vytvořit.');}
   }
-  return <details className="tw-details tw-room-shape" open={!!room.outline}>
-    <summary>Tvar místnosti · {room.outline?`${walls.length} stěn`:'obdélník'}</summary>
+  return <section className="tw-room-shape">
+    <h3>Tvar místnosti · {room.outline?`${walls.length} stěn`:'obdélník'}</h3>
     <div className="tw-shape-presets">{([{id:'rectangle',name:'Obdélník'},{id:'l',name:'Do L'},{id:'u',name:'Do U'}] as const).map(s=><Button key={s.id} variant="outline" onClick={()=>chooseShape(s.id)}>{s.name}</Button>)}</div>
     <svg className="tw-shape-map" viewBox={`-45 -45 ${room.width+90} ${room.length+90}`} role="img" aria-label="Půdorys s označením stěn">
       <polygon points={polygon} fill="#f7ecd9" stroke="#78634b" strokeWidth="3"/>
@@ -41,5 +41,5 @@ export function RoomShapePanel({room,onChange}:{room:Room;onChange:(patch:Partia
     </details>
     {error&&<p className="tw-shape-error" role="alert">{error}</p>}
     <p className="tw-note">Čísla odpovídají stěnám v seznamu. Půdorys zůstává pravoúhlý. Po změně tvaru zkontrolujte otvory a přípojky; změnu lze vrátit tlačítkem Zpět.</p>
-  </details>;
+  </section>;
 }
